@@ -17,13 +17,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userEmail, setUserEmail] = useState<string>("");
   const [userName, setUserName] = useState<string>("Usuario");
   const [userInitials, setUserInitials] = useState<string>("U");
+  
+  // 1. NUEVO ESTADO PARA LA FOTO
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // ✅ AQUÍ AGREGAMOS "CUENTAS" AL MENÚ
+  // ✅ MENÚ (Tu menú personalizado)
   const MENU_ITEMS = [
     { ruta: "/dashboard", icon: "🏠", label: "Inicio" },
     { ruta: "/dashboard/calendario", icon: "📅", label: "Calendario" },
     { ruta: "/dashboard/clientes", icon: "👥", label: "Clientes" },
-    { ruta: "/dashboard/cuentas", icon: "💳", label: "Cuentas" }, // <--- NUEVO
+    { ruta: "/dashboard/cuentas", icon: "💳", label: "Cuentas" }, 
     { ruta: "/dashboard/finanzas", icon: "💰", label: "Finanzas" },
     { ruta: "/dashboard/habitos", icon: "🥗", label: "Hábitos" },
     { ruta: "/dashboard/estadisticas", icon: "📈", label: "Estadísticas" },
@@ -51,9 +54,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const email = session.user.email ?? "";
       setUserEmail(email);
 
+      // Datos del usuario (Nombre y Foto)
       const metaName = (session.user.user_metadata?.full_name as string) || (session.user.user_metadata?.name as string) || "";
+      
+      // 2. AQUÍ CARGAMOS LA FOTO DESDE SUPABASE
+      const metaAvatar = (session.user.user_metadata?.avatar_url as string) || null;
+
       const displayName = metaName || (email ? email.split("@")[0] : "Usuario");
+      
       setUserName(displayName);
+      setAvatarUrl(metaAvatar); // Guardamos la foto en el estado
       setUserInitials(makeInitials(displayName || email));
     };
 
@@ -120,7 +130,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </div>
         
-        {/* Footer Sidebar */}
         <div className="p-4 border-t border-white/5">
            <div className="flex items-center gap-3 opacity-50 text-xs text-gray-400">
               <span>🎨 Tema: Dark</span>
@@ -144,11 +153,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-sm font-bold text-white">{userName}</p>
                 {planUsuario === "premium" && <p className="text-[10px] font-bold uppercase text-yellow-400 tracking-wide">★ PRO MEMBER</p>}
               </div>
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white/10 shadow-lg">{userInitials}</div>
+              
+              {/* 3. AQUÍ ESTÁ EL CAMBIO: ¿TIENE FOTO? ENTONCES ÚSALA */}
+              {avatarUrl ? (
+                 <img 
+                    src={avatarUrl} 
+                    alt="Perfil" 
+                    className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-white/10 shadow-lg bg-gray-800"
+                 />
+              ) : (
+                 // SI NO, USA LA INICIAL
+                 <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white/10 shadow-lg">
+                    {userInitials}
+                 </div>
+              )}
+              
             </button>
 
             {menuPerfilAbierto && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl py-2 z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-56 bg-[#161B22] border border-gray-700 rounded-xl shadow-2xl py-2 z-50 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
                 <div className="px-4 py-3 border-b border-gray-700 bg-white/5">
                   <p className="text-xs text-gray-400 mb-1">Cuenta conectada</p>
                   <p className="text-sm font-medium text-white truncate">{userEmail || "—"}</p>
