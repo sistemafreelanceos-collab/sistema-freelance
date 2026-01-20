@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-// Se eliminó Link y useRouter para evitar errores de compilación en Vercel
+// Eliminamos importaciones innecesarias para evitar errores en Vercel
 import { supabase } from "../../../lib/supabaseClient";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -22,10 +22,10 @@ type Cliente = {
   monto: number | null;
   moneda: Moneda;
   frecuencia_pago: FrecuenciaPago;
-  proximo_pago: string | null;
+  proximo_pago: string | null; // Null significa "Contra Entrega"
   ultimo_pago?: string | null;
   created_at: string;
-  pagos_cliente?: { monto: number }[];
+  pagos_cliente?: { monto: number }[]; // Join para calcular abonos
 };
 
 type Cuenta = {
@@ -92,7 +92,7 @@ const uploadComprobante = async (file: File, ownerId: string, clienteId: string,
   return path;
 };
 
-// Determina si es proyecto
+// Determina si es proyecto (Único o Contra Entrega)
 function esClienteProyecto(c: Cliente) {
     return c.frecuencia_pago === 'unico' || !c.proximo_pago;
 }
@@ -532,6 +532,7 @@ export default function ClientesPage() {
         </div>
       )}
 
+      {/* --- MODAL COTIZACION SIMPLE --- */}
       {quoteOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -555,6 +556,7 @@ export default function ClientesPage() {
         </div>
       )}
 
+      {/* --- MODAL CREAR --- */}
       {createOpen && (
          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
