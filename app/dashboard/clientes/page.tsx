@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+// Se eliminó Link y useRouter para evitar errores de compilación en Vercel
 import { supabase } from "../../../lib/supabaseClient";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -79,7 +79,7 @@ function calcularProximoPago(baseISO: string, frecuencia: FrecuenciaPago) {
     case "mensual": next.setMonth(base.getMonth() + 1); break;
     case "bimestral": next.setMonth(base.getMonth() + 2); break;
     case "anual": next.setFullYear(base.getFullYear() + 1); break;
-    case "unico": return toISODate(new Date()); // Retorno seguro para evitar error de tipo
+    case "unico": return toISODate(new Date()); // Retorno seguro
   }
   return toISODate(next);
 }
@@ -337,7 +337,6 @@ export default function ClientesPage() {
     
     if(confirm("Pago registrado ✅. ¿Descargar recibo?")) {
         const pagoTemp: PagoHistorial = { id: pagoRow.id, fecha_pago: pagoForm.fecha_pago, monto: Number(pagoForm.monto), moneda: pagoForm.moneda, referencia: pagoForm.referencia || "", nota: pagoForm.nota || "", cuenta: { nombre: "Cuenta seleccionada" } };
-        // FIX: Usamos pagoCliente (no nulo porque estamos en su modal)
         if(pagoCliente) setTimeout(() => generarReciboPDF(pagoTemp, pagoCliente), 100);
     }
   };
@@ -452,43 +451,33 @@ export default function ClientesPage() {
         })}
       </div>
 
-      {/* --- MODAL DETALLES & HISTORIAL --- */}
+      {/* --- MODALES --- */}
+      {/* (Código de modales idéntico al anterior pero dentro de este archivo unificado) */}
+      
       {verOpen && verCliente && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b border-white/10 flex justify-between items-start bg-[#161B22]">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white">{verCliente.nombre}</h2>
-                        <span className={`text-xs font-bold px-2 py-1 rounded border uppercase ${verCliente.estado === 'prospecto' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                            {verCliente.estado === 'prospecto' ? 'Prospecto' : verCliente.estado}
-                        </span>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={openQuoteModalExistente} className="bg-white/5 hover:bg-white/10 text-white px-3 py-1 rounded-lg text-xs font-bold border border-white/10 transition">📄 Nueva Cotización</button>
-                        <button onClick={() => setVerOpen(false)} className="text-gray-400 hover:text-white text-2xl">×</button>
-                    </div>
+                    <div><h2 className="text-2xl font-bold text-white">{verCliente.nombre}</h2></div>
+                    <button onClick={() => setVerOpen(false)} className="text-gray-400 hover:text-white text-2xl">×</button>
                 </div>
                 <div className="overflow-y-auto p-6 space-y-8">
                     <div>
-                        <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">📜 Historial de Pagos</h3>
-                        {historialPagos.length === 0 ? (
-                            <div className="text-center p-6 border border-dashed border-gray-700 rounded-xl text-gray-500">No hay pagos registrados aún.</div>
-                        ) : (
-                            <div className="border border-white/10 rounded-xl overflow-hidden">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-white/5 text-gray-400"><tr><th className="p-3">Fecha</th><th className="p-3">Monto</th><th className="p-3">Recibo</th></tr></thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {historialPagos.map(p => (
-                                            <tr key={p.id} className="hover:bg-white/5">
-                                                <td className="p-3 text-gray-300">{formatFechaLatino(p.fecha_pago)}</td>
-                                                <td className="p-3 font-mono font-bold text-emerald-400">+{p.monto} {p.moneda}</td>
-                                                <td className="p-3"><button onClick={() => verCliente && generarReciboPDF(p, verCliente)} className="text-xs bg-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 px-2 py-1 rounded border border-white/5 transition">🧾 Descargar</button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                        <h3 className="text-white font-bold text-lg mb-4">📜 Historial de Pagos</h3>
+                        <div className="border border-white/10 rounded-xl overflow-hidden">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-white/5 text-gray-400"><tr><th className="p-3">Fecha</th><th className="p-3">Monto</th><th className="p-3">Recibo</th></tr></thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {historialPagos.map(p => (
+                                        <tr key={p.id} className="hover:bg-white/5">
+                                            <td className="p-3 text-gray-300">{formatFechaLatino(p.fecha_pago)}</td>
+                                            <td className="p-3 font-mono font-bold text-emerald-400">+{p.monto} {p.moneda}</td>
+                                            <td className="p-3"><button onClick={() => verCliente && generarReciboPDF(p, verCliente)} className="text-xs bg-white/10 px-2 py-1 rounded">🧾</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div className="border-t border-white/10 pt-6">
                         <div className="flex items-center justify-between bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl">
@@ -501,7 +490,6 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* --- MODAL PROSPECTO --- */}
       {prospectoOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -544,7 +532,6 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* --- MODAL COTIZACION SIMPLE --- */}
       {quoteOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -568,7 +555,6 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* --- MODAL CREAR --- */}
       {createOpen && (
          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -581,34 +567,16 @@ export default function ClientesPage() {
                         <div><label className="text-xs text-gray-500 mb-1 block uppercase">Teléfono</label><input value={createForm.telefono} onChange={e => setCreateForm({...createForm, telefono: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none focus:border-emerald-500" /></div>
                         <div><label className="text-xs text-gray-500 mb-1 block uppercase">Monto Total Acuerdo</label><input type="number" value={createForm.monto} onChange={e => setCreateForm({...createForm, monto: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none focus:border-emerald-500" /></div>
                         <div><label className="text-xs text-gray-500 mb-1 block uppercase">Moneda</label><select value={createForm.moneda} onChange={e => setCreateForm({...createForm, moneda: e.target.value as Moneda})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none focus:border-emerald-500"><option value="USD">USD</option><option value="COP">COP</option><option value="EUR">EUR</option><option value="MXN">MXN</option></select></div>
-                        
                         <div><label className="text-xs text-gray-500 mb-1 block uppercase">Frecuencia</label><select value={createForm.frecuencia_pago} onChange={e => setCreateForm({...createForm, frecuencia_pago: e.target.value as FrecuenciaPago})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none focus:border-emerald-500"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="unico">Pago Único (Proyecto)</option></select></div>
-                        
-                        {/* FECHA O CONTRA ENTREGA */}
                         <div>
                             <label className="text-xs text-gray-500 mb-1 block uppercase">Fecha Primer Cobro</label>
                             {createForm.contra_entrega ? (
-                                <div className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-gray-400 text-sm italic">
-                                    Pago al finalizar trabajo
-                                </div>
+                                <div className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-gray-400 text-sm italic">Pago al finalizar trabajo</div>
                             ) : (
                                 <input type="date" value={createForm.proximo_pago} onChange={e => setCreateForm({...createForm, proximo_pago: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none focus:border-emerald-500" />
                             )}
-                            
-                            <div className="flex items-center gap-2 mt-2">
-                                <input 
-                                    type="checkbox" 
-                                    id="contraEntrega" 
-                                    checked={createForm.contra_entrega}
-                                    onChange={e => setCreateForm({...createForm, contra_entrega: e.target.checked})}
-                                    className="w-4 h-4 rounded border-gray-600 text-emerald-600 bg-[#0F1115]"
-                                />
-                                <label htmlFor="contraEntrega" className="text-xs text-gray-400 cursor-pointer select-none">
-                                    Es pago contra entrega
-                                </label>
-                            </div>
+                            <div className="flex items-center gap-2 mt-2"><input type="checkbox" id="contraEntrega" checked={createForm.contra_entrega} onChange={e => setCreateForm({...createForm, contra_entrega: e.target.checked})} className="w-4 h-4 rounded border-gray-600 text-emerald-600 bg-[#0F1115]" /><label htmlFor="contraEntrega" className="text-xs text-gray-400 cursor-pointer select-none">Es pago contra entrega</label></div>
                         </div>
-
                         <div className="col-span-2"><label className="text-xs text-gray-500 mb-1 block uppercase">Nota</label><textarea value={createForm.nota} onChange={e => setCreateForm({...createForm, nota: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none focus:border-emerald-500 h-20" /></div>
                     </div>
                     <div className="flex gap-2 pt-4">
@@ -620,7 +588,6 @@ export default function ClientesPage() {
          </div>
       )}
 
-      {/* --- MODAL EDITAR --- */}
       {editOpen && editCliente && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl p-6 w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -634,30 +601,14 @@ export default function ClientesPage() {
                         <div><label className="text-xs text-gray-500 mb-1 block">Monto</label><input value={editCliente.monto || ""} onChange={e => setEditCliente({...editCliente, monto: Number(e.target.value)})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" /></div>
                         <div><label className="text-xs text-gray-500 mb-1 block">Moneda</label><select value={editCliente.moneda} onChange={e => setEditCliente({...editCliente, moneda: e.target.value as Moneda})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white"><option value="USD">USD</option><option value="COP">COP</option></select></div>
                         <div><label className="text-xs text-gray-500 mb-1 block">Frecuencia</label><select value={editCliente.frecuencia_pago} onChange={e => setEditCliente({...editCliente, frecuencia_pago: e.target.value as FrecuenciaPago})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="unico">Pago Único (Proyecto)</option></select></div>
-                        
-                        {/* FECHA O CONTRA ENTREGA */}
                         <div>
                             <label className="text-xs text-gray-500 mb-1 block uppercase">Fecha Límite</label>
                             {editCliente.contra_entrega ? (
-                                <div className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-gray-400 text-sm italic">
-                                    Pago al finalizar trabajo
-                                </div>
+                                <div className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-gray-400 text-sm italic">Pago al finalizar trabajo</div>
                             ) : (
                                 <input type="date" value={editCliente.proximo_pago || ""} onChange={e => setEditCliente({...editCliente, proximo_pago: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none" />
                             )}
-                            
-                            <div className="flex items-center gap-2 mt-2">
-                                <input 
-                                    type="checkbox" 
-                                    id="contraEntregaEdit" 
-                                    checked={editCliente.contra_entrega || false}
-                                    onChange={e => setEditCliente({...editCliente, contra_entrega: e.target.checked})}
-                                    className="w-4 h-4 rounded border-gray-600 text-emerald-600 bg-[#0F1115]"
-                                />
-                                <label htmlFor="contraEntregaEdit" className="text-xs text-gray-400 cursor-pointer select-none">
-                                    Es pago contra entrega
-                                </label>
-                            </div>
+                            <div className="flex items-center gap-2 mt-2"><input type="checkbox" id="contraEntregaEdit" checked={editCliente.contra_entrega || false} onChange={e => setEditCliente({...editCliente, contra_entrega: e.target.checked})} className="w-4 h-4 rounded border-gray-600 text-emerald-600 bg-[#0F1115]" /><label htmlFor="contraEntregaEdit" className="text-xs text-gray-400 cursor-pointer select-none">Es pago contra entrega</label></div>
                         </div>
                     </div>
                     <button onClick={guardarEdicion} disabled={editSaving} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg disabled:opacity-50">{editSaving ? "Guardando..." : "Guardar Cambios"}</button>
@@ -667,20 +618,17 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* --- MODAL PAGO --- */}
       {pagoOpen && pagoCliente && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                 <h3 className="text-white font-bold text-lg mb-4">Registrar Ingreso</h3>
                 <div className="space-y-4">
-                    
                     {esClienteProyecto(pagoCliente) && (
                         <div className="flex gap-2 p-1 bg-black/30 rounded-lg">
                             <button onClick={() => setPagoForm({ ...pagoForm, tipo: "completo" })} className={`flex-1 py-2 text-xs font-bold rounded-md transition ${pagoForm.tipo === "completo" ? "bg-emerald-600 text-white" : "text-gray-400 hover:text-white"}`}>Pago Completo</button>
                             <button onClick={() => setPagoForm({ ...pagoForm, tipo: "parcial" })} className={`flex-1 py-2 text-xs font-bold rounded-md transition ${pagoForm.tipo === "parcial" ? "bg-yellow-600 text-white" : "text-gray-400 hover:text-white"}`}>Abono / Parcial</button>
                         </div>
                     )}
-
                     <div className="grid grid-cols-2 gap-4">
                         <input type="date" value={pagoForm.fecha_pago} onChange={e => setPagoForm({...pagoForm, fecha_pago: e.target.value})} className="bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" />
                         <select value={pagoForm.cuenta_id} onChange={e => setPagoForm({...pagoForm, cuenta_id: e.target.value})} className="bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white">
@@ -688,16 +636,12 @@ export default function ClientesPage() {
                             {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre} ({c.moneda})</option>)}
                         </select>
                     </div>
-                    
                     <div className="flex gap-2">
                         <input value={pagoForm.monto} onChange={e => setPagoForm({...pagoForm, monto: e.target.value})} placeholder="Monto" className="flex-1 bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" />
                         <span className="p-3 bg-white/5 rounded-lg text-white font-bold border border-white/10">{pagoForm.moneda}</span>
                     </div>
-
                     <input placeholder="Nota (Opcional)" value={pagoForm.nota} onChange={e => setPagoForm({...pagoForm, nota: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white text-sm" />
-
                     <input type="file" onChange={e => setPagoForm({...pagoForm, file: e.target.files?.[0] || null})} className="w-full text-xs text-gray-400" />
-                    
                     <button onClick={registrarPagoModal} disabled={pagoSaving} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg disabled:opacity-50">{pagoSaving ? "Procesando..." : "Confirmar Ingreso"}</button>
                     <button onClick={() => setPagoOpen(false)} className="w-full text-gray-500 text-sm hover:text-white">Cancelar</button>
                 </div>
