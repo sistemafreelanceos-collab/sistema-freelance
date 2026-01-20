@@ -362,4 +362,4 @@ export default function DashboardPage() {
 
     </div>
   );
-}
+}// Actualización forzada para Vercel
