@@ -2,13 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // --- TIPOS ---
-type Plan = "gratis" | "premium";
 type FrecuenciaPago = "semanal" | "quincenal" | "mensual" | "bimestral" | "anual" | "unico";
 type Moneda = "USD" | "COP" | "EUR" | "MXN";
 
@@ -24,10 +22,10 @@ type Cliente = {
   monto: number | null;
   moneda: Moneda;
   frecuencia_pago: FrecuenciaPago;
-  proximo_pago: string | null; // Null significa "Contra Entrega"
+  proximo_pago: string | null;
   ultimo_pago?: string | null;
   created_at: string;
-  pagos_cliente?: { monto: number }[]; // Join para calcular abonos
+  pagos_cliente?: { monto: number }[];
 };
 
 type Cuenta = {
@@ -81,7 +79,7 @@ function calcularProximoPago(baseISO: string, frecuencia: FrecuenciaPago) {
     case "mensual": next.setMonth(base.getMonth() + 1); break;
     case "bimestral": next.setMonth(base.getMonth() + 2); break;
     case "anual": next.setFullYear(base.getFullYear() + 1); break;
-    case "unico": return null as any; 
+    case "unico": return toISODate(new Date()); // Retorno seguro para evitar error de tipo
   }
   return toISODate(next);
 }
@@ -94,14 +92,12 @@ const uploadComprobante = async (file: File, ownerId: string, clienteId: string,
   return path;
 };
 
-// --- FUNCIÓN IMPORTANTE: Determina si es proyecto (barra de progreso) ---
+// Determina si es proyecto
 function esClienteProyecto(c: Cliente) {
-    // Es proyecto si la frecuencia es 'unico' O si la fecha es 'Contra Entrega' (null)
-    return c.frecuencia_pago === 'unico' || c.proximo_pago === null;
+    return c.frecuencia_pago === 'unico' || !c.proximo_pago;
 }
 
 export default function ClientesPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
 
   // Datos
@@ -116,7 +112,7 @@ export default function ClientesPage() {
   const [createSaving, setCreateSaving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
-  const [editCliente, setEditCliente] = useState<Cliente | null>(null);
+  const [editCliente, setEditCliente] = useState<(Cliente & { contra_entrega?: boolean }) | null>(null);
   const [pagoOpen, setPagoOpen] = useState(false);
   const [pagoSaving, setPagoSaving] = useState(false);
   const [pagoCliente, setPagoCliente] = useState<Cliente | null>(null);
@@ -160,11 +156,10 @@ export default function ClientesPage() {
     return clientes.filter(c => c.nombre.toLowerCase().includes(q) || c.empresa?.toLowerCase().includes(q));
   }, [clientes, query]);
 
-  // --- INIT ---
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push("/"); return; }
+      if (!session) return;
       const userId = session.user.id;
 
       const [resProfile, resClientes, resCuentas] = await Promise.all([
@@ -182,9 +177,8 @@ export default function ClientesPage() {
       setLoading(false);
     };
     init();
-  }, [router]);
+  }, []);
 
-  // --- PDF GENERATORS ---
   const generarReciboPDF = (pago: PagoHistorial, clienteParaRecibo: Cliente) => {
     if (!clienteParaRecibo) return;
     const doc = new jsPDF();
@@ -228,7 +222,6 @@ export default function ClientesPage() {
       doc.save(`Cotizacion_${clienteData.nombre.replace(/ /g, "_")}.pdf`);
   };
 
-  // --- ACTIONS ---
   const addQuoteItem = () => setQuoteItems([...quoteItems, { id: Date.now(), desc: "", qty: 1, price: 0 }]);
   const removeQuoteItem = (id: number) => setQuoteItems(quoteItems.filter(i => i.id !== id));
 
@@ -260,33 +253,19 @@ export default function ClientesPage() {
     if (!createForm.nombre.trim()) return alert("Nombre obligatorio");
     setCreateSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
-    
-    // Si marcó "Contra Entrega", la fecha es null Y la frecuencia la forzamos a UNICO
     const isContraEntrega = createForm.contra_entrega;
     const fechaPago = isContraEntrega ? null : (createForm.proximo_pago || null);
     const frecuenciaFinal = isContraEntrega ? 'unico' : createForm.frecuencia_pago;
 
     const payload = {
-      owner_id: session?.user.id,
-      nombre: createForm.nombre,
-      empresa: createForm.empresa || null,
-      email: createForm.email || null,
-      telefono: createForm.telefono || null,
-      monto: createForm.monto ? Number(createForm.monto) : null,
-      moneda: createForm.moneda,
-      frecuencia_pago: frecuenciaFinal,
-      proximo_pago: fechaPago, 
-      nota: createForm.nota || null,
-      estado: 'activo'
+      owner_id: session?.user.id, nombre: createForm.nombre, empresa: createForm.empresa || null, email: createForm.email || null, telefono: createForm.telefono || null, monto: createForm.monto ? Number(createForm.monto) : null, moneda: createForm.moneda, frecuencia_pago: frecuenciaFinal, proximo_pago: fechaPago, nota: createForm.nota || null, estado: 'activo'
     };
 
     const { data, error } = await supabase.from("clientes").insert(payload).select("*, pagos_cliente(monto)").single();
     setCreateSaving(false);
-    
     if (error) alert(error.message);
     else {
-      setClientes([data as Cliente, ...clientes]);
-      setCreateOpen(false);
+      setClientes([data as Cliente, ...clientes]); setCreateOpen(false);
       setCreateForm({ nombre: "", empresa: "", email: "", telefono: "", nota: "", monto: "", moneda: "USD", frecuencia_pago: "mensual", proximo_pago: "", contra_entrega: false });
     }
   };
@@ -300,48 +279,52 @@ export default function ClientesPage() {
     if (!error) { const actualizado = { ...c, estado: nuevoEstado }; setClientes(prev => prev.map(cl => cl.id === c.id ? actualizado as Cliente : cl)); if (verCliente?.id === c.id) setVerCliente(actualizado as Cliente); }
   };
 
-  const guardarEdicion = async () => { if(!editCliente) return; setEditSaving(true); await supabase.from("clientes").update({ nombre: editCliente.nombre, empresa: editCliente.empresa, email: editCliente.email, telefono: editCliente.telefono, monto: editCliente.monto, moneda: editCliente.moneda, frecuencia_pago: editCliente.frecuencia_pago, proximo_pago: editCliente.proximo_pago, nota: editCliente.nota }).eq("id", editCliente.id); setEditSaving(false); setClientes(prev => prev.map(c => c.id === editCliente.id ? editCliente as Cliente : c)); if(verCliente?.id === editCliente.id) setVerCliente(editCliente as Cliente); setEditOpen(false); };
+  const guardarEdicion = async () => {
+    if(!editCliente) return;
+    setEditSaving(true);
+    const isContraEntrega = editCliente.contra_entrega;
+    const fechaPago = isContraEntrega ? null : editCliente.proximo_pago;
+    const frecuenciaFinal = isContraEntrega ? 'unico' : editCliente.frecuencia_pago;
+
+    const updates = {
+        nombre: editCliente.nombre, empresa: editCliente.empresa, email: editCliente.email, telefono: editCliente.telefono, monto: editCliente.monto, moneda: editCliente.moneda, frecuencia_pago: frecuenciaFinal, proximo_pago: fechaPago, nota: editCliente.nota, estado: editCliente.estado
+    };
+
+    const { error } = await supabase.from("clientes").update(updates).eq("id", editCliente.id);
+    setEditSaving(false);
+    if (error) { alert(error.message); } else {
+        const clienteActualizado = { ...editCliente, ...updates } as Cliente;
+        setClientes(prev => prev.map(c => c.id === editCliente.id ? clienteActualizado : c));
+        if(verCliente?.id === editCliente.id) setVerCliente(clienteActualizado);
+        setEditOpen(false);
+    }
+  };
+
   const eliminarCliente = async (id: string) => { if(!confirm("Eliminar?")) return; await supabase.from("clientes").delete().eq("id", id); setClientes(prev => prev.filter(c => c.id !== id)); };
 
-  // --- LÓGICA DE PAGO OPTIMIZADA ---
   const registrarPagoModal = async () => {
     if (!pagoCliente || !pagoForm.cuenta_id) return alert("Falta cuenta");
     setPagoSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
     
-    // 1. Guardar Pago
     const { data: pagoRow } = await supabase.from("pagos_cliente").insert({ 
-        owner_id: session?.user.id, 
-        cliente_id: pagoCliente.id, 
-        cuenta_id: pagoForm.cuenta_id, 
-        fecha_pago: pagoForm.fecha_pago, 
-        monto: Number(pagoForm.monto), 
-        moneda: pagoForm.moneda, 
-        referencia: pagoForm.referencia, 
-        nota: `${pagoForm.nota ? pagoForm.nota + ' - ' : ''}${pagoForm.tipo === 'parcial' ? 'ABONO' : 'PAGO'}`
+        owner_id: session?.user.id, cliente_id: pagoCliente.id, cuenta_id: pagoForm.cuenta_id, 
+        fecha_pago: pagoForm.fecha_pago, monto: Number(pagoForm.monto), moneda: pagoForm.moneda, 
+        referencia: pagoForm.referencia, nota: `${pagoForm.nota ? pagoForm.nota + ' - ' : ''}${pagoForm.tipo === 'parcial' ? 'ABONO' : 'PAGO'}`
     }).select().single();
 
-    if (pagoForm.file) {
-        try { const url = await uploadComprobante(pagoForm.file, session?.user.id as string, pagoCliente.id, pagoRow.id); await supabase.from("pagos_cliente").update({ comprobante_url: url }).eq("id", pagoRow.id); } catch(e) {}
-    }
+    if (pagoForm.file) { try { const url = await uploadComprobante(pagoForm.file, session?.user.id as string, pagoCliente.id, pagoRow.id); await supabase.from("pagos_cliente").update({ comprobante_url: url }).eq("id", pagoRow.id); } catch(e) {} }
 
-    await supabase.from("movimientos").insert({ 
-        owner_id: session?.user.id, cuenta_id: pagoForm.cuenta_id, tipo: 'ingreso', categoria: 'negocio', fuente: 'pago_cliente', cliente_id: pagoCliente.id, pago_cliente_id: pagoRow.id, fecha: pagoForm.fecha_pago, monto: Number(pagoForm.monto), moneda: pagoForm.moneda, referencia: pagoForm.referencia 
-    });
+    await supabase.from("movimientos").insert({ owner_id: session?.user.id, cuenta_id: pagoForm.cuenta_id, tipo: 'ingreso', categoria: 'negocio', fuente: 'pago_cliente', cliente_id: pagoCliente.id, pago_cliente_id: pagoRow.id, fecha: pagoForm.fecha_pago, monto: Number(pagoForm.monto), moneda: pagoForm.moneda, referencia: pagoForm.referencia });
 
-    // 4. ACTUALIZAR CLIENTE
     const updates: any = { ultimo_pago: pagoForm.fecha_pago };
-    
-    // LOGICA: Solo avanzar fecha si es PAGO COMPLETO
     if (pagoForm.tipo === 'completo') {
         if (pagoCliente.proximo_pago && pagoCliente.frecuencia_pago !== 'unico') {
             updates.proximo_pago = calcularProximoPago(pagoForm.fecha_pago, pagoCliente.frecuencia_pago);
         }
     }
-
     await supabase.from("clientes").update(updates).eq("id", pagoCliente.id);
 
-    // Actualizar UI
     setClientes(prev => prev.map(c => {
         if (c.id === pagoCliente.id) {
             const nuevosPagos = [...(c.pagos_cliente || []), { monto: Number(pagoForm.monto) }];
@@ -350,41 +333,39 @@ export default function ClientesPage() {
         return c;
     }));
     
-    setPagoOpen(false); 
-    setPagoSaving(false); 
+    setPagoOpen(false); setPagoSaving(false); 
     
     if(confirm("Pago registrado ✅. ¿Descargar recibo?")) {
         const pagoTemp: PagoHistorial = { id: pagoRow.id, fecha_pago: pagoForm.fecha_pago, monto: Number(pagoForm.monto), moneda: pagoForm.moneda, referencia: pagoForm.referencia || "", nota: pagoForm.nota || "", cuenta: { nombre: "Cuenta seleccionada" } };
-        setTimeout(() => generarReciboPDF(pagoTemp, pagoCliente), 100);
+        // FIX: Usamos pagoCliente (no nulo porque estamos en su modal)
+        if(pagoCliente) setTimeout(() => generarReciboPDF(pagoTemp, pagoCliente), 100);
     }
   };
 
   const openPago = (c: Cliente) => { 
       setPagoCliente(c); 
       const principal = cuentas.find(cta => cta.is_principal)?.id || cuentas[0]?.id || ""; 
-      
-      // LOGICA CORREGIDA: Si es 'unico' O 'Contra Entrega', es Proyecto -> Permite parciales.
       const esProyecto = esClienteProyecto(c);
-      
       setPagoForm({ 
-          fecha_pago: toISODate(new Date()), 
-          monto: String(c.monto || 0), 
-          moneda: c.moneda, 
-          referencia: "", 
-          cuenta_id: principal, 
-          nota: "", 
-          file: null,
-          tipo: esProyecto ? "parcial" : "completo" // Default inteligente
+          fecha_pago: toISODate(new Date()), monto: String(c.monto || 0), moneda: c.moneda, 
+          referencia: "", cuenta_id: principal, nota: "", file: null, 
+          tipo: esProyecto ? "parcial" : "completo" 
       }); 
       setPagoOpen(true); 
+  };
+
+  const handleOpenEdit = (c: Cliente) => {
+      setEditCliente({
+          ...c,
+          contra_entrega: c.proximo_pago === null
+      });
+      setEditOpen(true);
   };
 
   if (loading) return <div className="p-8 text-gray-400">Cargando...</div>;
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
-      
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
         <div>
             <h1 className="text-3xl font-bold text-white">Clientes</h1>
@@ -400,19 +381,14 @@ export default function ClientesPage() {
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Buscar cliente..." className="w-full bg-[#161B22] border border-white/10 rounded-xl p-4 text-white focus:border-emerald-500 outline-none" />
       </div>
 
-      {/* GRID CLIENTES */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {clientesFiltrados.map(c => {
             const isLate = c.proximo_pago && c.proximo_pago < toISODate(new Date());
-            
-            // ✅ USAMOS LA NUEVA LÓGICA ROBUSTA PARA DETERMINAR SI ES PROYECTO
             const esProyecto = esClienteProyecto(c);
-
             let badgeClass = "bg-gray-700/30 text-gray-400 border-gray-600"; 
             if (c.estado === 'activo') badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
             if (c.estado === 'prospecto') badgeClass = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
 
-            // CÁLCULO DE ABONOS (Solo lo usamos si es Proyecto)
             const totalPagado = c.pagos_cliente?.reduce((sum, p) => sum + p.monto, 0) || 0;
             const deudaTotal = c.monto || 0;
             const restante = deudaTotal - totalPagado;
@@ -438,7 +414,6 @@ export default function ClientesPage() {
                                     <span className="text-white font-mono font-bold">{c.monto ? `$${c.monto}` : '—'} <span className="text-[10px] text-gray-500">{c.moneda}</span></span>
                                 </div>
                                 
-                                {/* BARRA DE PROGRESO: APARECE SI ES 'unico' O SI ES 'Contra Entrega' (null) */}
                                 {esProyecto && c.monto && c.monto > 0 ? (
                                     <div className="mt-3 mb-1">
                                         <div className="flex justify-between text-[10px] mb-1">
@@ -469,7 +444,7 @@ export default function ClientesPage() {
                         <button onClick={() => openPago(c)} disabled={c.estado !== 'activo'} className="flex-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-600/30 rounded-lg py-2 text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed">
                             💵 Registrar Pago
                         </button>
-                        <button onClick={() => { setEditCliente(c); setEditOpen(true); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg">✏️</button>
+                        <button onClick={() => handleOpenEdit(c)} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg">✏️</button>
                         <button onClick={() => abrirDetalles(c)} className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg">👁️</button>
                     </div>
                 </div>
@@ -507,7 +482,7 @@ export default function ClientesPage() {
                                             <tr key={p.id} className="hover:bg-white/5">
                                                 <td className="p-3 text-gray-300">{formatFechaLatino(p.fecha_pago)}</td>
                                                 <td className="p-3 font-mono font-bold text-emerald-400">+{p.monto} {p.moneda}</td>
-                                                <td className="p-3"><button onClick={() => generarReciboPDF(p, verCliente!)} className="text-xs bg-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 px-2 py-1 rounded border border-white/5 transition">🧾 Descargar</button></td>
+                                                <td className="p-3"><button onClick={() => verCliente && generarReciboPDF(p, verCliente)} className="text-xs bg-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 px-2 py-1 rounded border border-white/5 transition">🧾 Descargar</button></td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -658,8 +633,32 @@ export default function ClientesPage() {
                         <div><label className="text-xs text-gray-500 mb-1 block">Teléfono</label><input value={editCliente.telefono || ""} onChange={e => setEditCliente({...editCliente, telefono: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" /></div>
                         <div><label className="text-xs text-gray-500 mb-1 block">Monto</label><input value={editCliente.monto || ""} onChange={e => setEditCliente({...editCliente, monto: Number(e.target.value)})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" /></div>
                         <div><label className="text-xs text-gray-500 mb-1 block">Moneda</label><select value={editCliente.moneda} onChange={e => setEditCliente({...editCliente, moneda: e.target.value as Moneda})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white"><option value="USD">USD</option><option value="COP">COP</option></select></div>
-                        <div><label className="text-xs text-gray-500 mb-1 block">Frecuencia</label><select value={editCliente.frecuencia_pago} onChange={e => setEditCliente({...editCliente, frecuencia_pago: e.target.value as FrecuenciaPago})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option></select></div>
-                        <div><label className="text-xs text-gray-500 mb-1 block">Prox Pago</label><input type="date" value={editCliente.proximo_pago || ""} onChange={e => setEditCliente({...editCliente, proximo_pago: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" /></div>
+                        <div><label className="text-xs text-gray-500 mb-1 block">Frecuencia</label><select value={editCliente.frecuencia_pago} onChange={e => setEditCliente({...editCliente, frecuencia_pago: e.target.value as FrecuenciaPago})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="unico">Pago Único (Proyecto)</option></select></div>
+                        
+                        {/* FECHA O CONTRA ENTREGA */}
+                        <div>
+                            <label className="text-xs text-gray-500 mb-1 block uppercase">Fecha Límite</label>
+                            {editCliente.contra_entrega ? (
+                                <div className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-gray-400 text-sm italic">
+                                    Pago al finalizar trabajo
+                                </div>
+                            ) : (
+                                <input type="date" value={editCliente.proximo_pago || ""} onChange={e => setEditCliente({...editCliente, proximo_pago: e.target.value})} className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white outline-none" />
+                            )}
+                            
+                            <div className="flex items-center gap-2 mt-2">
+                                <input 
+                                    type="checkbox" 
+                                    id="contraEntregaEdit" 
+                                    checked={editCliente.contra_entrega || false}
+                                    onChange={e => setEditCliente({...editCliente, contra_entrega: e.target.checked})}
+                                    className="w-4 h-4 rounded border-gray-600 text-emerald-600 bg-[#0F1115]"
+                                />
+                                <label htmlFor="contraEntregaEdit" className="text-xs text-gray-400 cursor-pointer select-none">
+                                    Es pago contra entrega
+                                </label>
+                            </div>
+                        </div>
                     </div>
                     <button onClick={guardarEdicion} disabled={editSaving} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg disabled:opacity-50">{editSaving ? "Guardando..." : "Guardar Cambios"}</button>
                     <button onClick={() => setEditOpen(false)} className="w-full text-gray-500 text-sm hover:text-white">Cancelar</button>
@@ -668,28 +667,17 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* --- MODAL PAGO (ACTUALIZADO CON SELECTOR DE TIPO) --- */}
+      {/* --- MODAL PAGO --- */}
       {pagoOpen && pagoCliente && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-[#1C2128] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                 <h3 className="text-white font-bold text-lg mb-4">Registrar Ingreso</h3>
                 <div className="space-y-4">
                     
-                    {/* TIPO DE PAGO: Solo visible si es PROYECTO (pago único) */}
                     {esClienteProyecto(pagoCliente) && (
                         <div className="flex gap-2 p-1 bg-black/30 rounded-lg">
-                            <button 
-                                onClick={() => setPagoForm({ ...pagoForm, tipo: "completo" })}
-                                className={`flex-1 py-2 text-xs font-bold rounded-md transition ${pagoForm.tipo === "completo" ? "bg-emerald-600 text-white" : "text-gray-400 hover:text-white"}`}
-                            >
-                                Pago Completo
-                            </button>
-                            <button 
-                                onClick={() => setPagoForm({ ...pagoForm, tipo: "parcial" })}
-                                className={`flex-1 py-2 text-xs font-bold rounded-md transition ${pagoForm.tipo === "parcial" ? "bg-yellow-600 text-white" : "text-gray-400 hover:text-white"}`}
-                            >
-                                Abono / Parcial
-                            </button>
+                            <button onClick={() => setPagoForm({ ...pagoForm, tipo: "completo" })} className={`flex-1 py-2 text-xs font-bold rounded-md transition ${pagoForm.tipo === "completo" ? "bg-emerald-600 text-white" : "text-gray-400 hover:text-white"}`}>Pago Completo</button>
+                            <button onClick={() => setPagoForm({ ...pagoForm, tipo: "parcial" })} className={`flex-1 py-2 text-xs font-bold rounded-md transition ${pagoForm.tipo === "parcial" ? "bg-yellow-600 text-white" : "text-gray-400 hover:text-white"}`}>Abono / Parcial</button>
                         </div>
                     )}
 
