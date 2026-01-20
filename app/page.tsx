@@ -90,7 +90,7 @@ export default function LoginPage() {
                     : 'text-gray-500 hover:text-white'
                 }`}
             >
-                Crear Cuenta Ruben "lee por favor"
+                Crear Cuenta"
             </button>
         </div>
 
