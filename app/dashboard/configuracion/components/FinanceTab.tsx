@@ -1,127 +1,121 @@
 "use client";
-import { ConfigPerfil } from "../types";
 
-interface Props {
+import React from "react";
+
+type Moneda = "USD" | "COP" | "EUR" | "MXN";
+
+export type ConfigPerfil = {
+  monedas_activas: Moneda[]; // ej: ["USD","COP"]
+  meta_moneda: Moneda;       // moneda de meta actual
+};
+
+type Props = {
   config: ConfigPerfil;
-  setConfig: (c: ConfigPerfil) => void;
-  guardar: () => void;
-  saving: boolean;
-}
+  setConfig: React.Dispatch<React.SetStateAction<ConfigPerfil>>;
+};
 
-export default function FinanceTab({ config, setConfig, guardar, saving }: Props) {
-  
-  // Lista ampliada de monedas globales
-  const monedasDisponibles = [
-    "USD", "EUR", "COP", "MXN", "ARS", "CLP", "PEN", "BRL", // Latam & US/EU
-    "JPY", "GBP", "CAD", "AUD", "CNY", "CHF", "KRW"         // Global / Asia
-  ];
+const ALL_MONEDAS: Moneda[] = ["USD", "COP", "EUR", "MXN"];
 
-  // Función para activar/desactivar monedas
-  const toggleMoneda = (moneda: string) => {
-    const current = config.monedas_activas || [];
-    let updated = [];
-    
-    if (current.includes(moneda)) {
-      // Si ya estaba, la quitamos
-      updated = current.filter(m => m !== moneda);
-    } else {
-      // Si no estaba, la agregamos
-      updated = [...current, moneda];
+export default function FinanceTab({ config, setConfig }: Props) {
+  const toggleMoneda = (moneda: Moneda) => {
+    setConfig((prev: ConfigPerfil) => {
+      const already = prev.monedas_activas.includes(moneda);
+
+      // Evitar quedarte con 0 monedas activas
+      if (already && prev.monedas_activas.length === 1) {
+        return prev;
+      }
+
+      const updated = already
+        ? prev.monedas_activas.filter((m) => m !== moneda)
+        : [...prev.monedas_activas, moneda];
+
+      // Si la moneda de la meta queda desactivada, se reasigna
+      const metaNueva =
+        prev.meta_moneda === moneda && !updated.includes(moneda)
+          ? (updated[0] ?? "USD")
+          : prev.meta_moneda;
+
+      return {
+        ...prev,
+        monedas_activas: updated,
+        meta_moneda: metaNueva,
+      };
+    });
+  };
+
+  const setMetaMoneda = (moneda: Moneda) => {
+    // Solo permitir meta en una moneda activa
+    if (!config.monedas_activas.includes(moneda)) {
+      alert("Activa esa moneda primero para poder usarla como meta.");
+      return;
     }
-
-    // Actualizamos la config
-    setConfig({ ...config, monedas_activas: updated });
-
-    // Inteligencia: Si la moneda de la meta ya no está activa, la cambiamos a la primera disponible
-    if (config.meta_moneda === moneda && !updated.includes(moneda)) {
-        setConfig(prev => ({ ...prev, monedas_activas: updated, meta_moneda: updated[0] || "USD" }));
-    } 
+    setConfig((prev) => ({ ...prev, meta_moneda: moneda }));
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn pb-10">
-      
-      {/* SECCIÓN 1: MONEDAS ACTIVAS */}
-      <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl">
-        <h3 className="text-white font-bold mb-4 flex items-center gap-2">💰 Monedas de Trabajo</h3>
-        <p className="text-xs text-gray-400 mb-4">Selecciona todas las divisas que aceptarás en tus proyectos.</p>
-        
-        <div className="flex gap-2 flex-wrap">
-          {monedasDisponibles.map(m => (
-            <button 
-              key={m} 
-              onClick={() => toggleMoneda(m)} 
-              className={`px-3 py-2 rounded-lg border text-xs font-bold transition-all ${
-                config.monedas_activas.includes(m) 
-                  ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]" 
-                  : "bg-black/20 border-white/10 text-gray-500 hover:border-white/30 hover:text-gray-300"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-white mb-1">Finanzas</h2>
+        <p className="text-sm text-gray-400">
+          Configura monedas activas y la moneda principal para metas.
+        </p>
       </div>
 
-      {/* SECCIÓN 2: METAS Y SALUD */}
-      <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl space-y-6 shadow-xl">
-        <h3 className="text-white font-bold flex items-center gap-2">📈 Metas & Salud</h3>
-        
-        {/* Meta Financiera CON SELECTOR */}
-        <div>
-          <label className="text-xs text-gray-400 block mb-2 font-bold uppercase">Meta Mensual de Facturación</label>
-          <div className="flex gap-2">
-             <div className="relative flex-1">
-                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
-                 <input 
-                   type="number" 
-                   className="w-full bg-black/20 border border-white/10 rounded-lg p-3 pl-8 text-white text-lg font-bold focus:border-emerald-500 outline-none transition" 
-                   placeholder="0.00"
-                   value={config.meta_mensual} 
-                   onChange={e => setConfig({...config, meta_mensual: Number(e.target.value)})} 
-                 />
-             </div>
-             
-             {/* Selector de Moneda para la Meta */}
-             <select 
-                value={config.meta_moneda}
-                onChange={e => setConfig({...config, meta_moneda: e.target.value})}
-                className="bg-black/20 border border-white/10 rounded-lg px-4 text-white font-bold text-sm focus:border-emerald-500 outline-none cursor-pointer"
-             >
-                {config.monedas_activas.map(m => (
-                    <option key={m} value={m} className="bg-[#161B22] text-white">{m}</option>
-                ))}
-                {config.monedas_activas.length === 0 && <option value="USD" className="bg-[#161B22]">USD</option>}
-             </select>
-          </div>
-          <p className="text-[10px] text-gray-500 mt-2">
-             El sistema usará {config.meta_moneda} para medir tu progreso en el tablero principal.
-          </p>
+      {/* Monedas activas */}
+      <div className="bg-[#161B22] border border-white/10 rounded-2xl p-4">
+        <p className="text-sm font-bold text-white mb-3">Monedas activas</p>
+
+        <div className="flex flex-wrap gap-2">
+          {ALL_MONEDAS.map((m) => {
+            const active = config.monedas_activas.includes(m);
+            return (
+              <button
+                key={m}
+                onClick={() => toggleMoneda(m)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                  active
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                    : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
+                }`}
+              >
+                {m}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Límite de Horas */}
-        <div className="border-t border-white/5 pt-4">
-          <label className="text-xs text-gray-400 block mb-2 font-bold uppercase">Límite de Horas Diarias (Anti-Burnout)</label>
-          <div className="flex items-center gap-3">
-            <input 
-              type="number" 
-              className="w-24 bg-black/20 border border-white/10 rounded-lg p-3 text-white text-lg font-bold text-center focus:border-red-500 outline-none transition" 
-              value={config.limite_horas_diario} 
-              onChange={e => setConfig({...config, limite_horas_diario: Number(e.target.value)})} 
-            />
-            <span className="text-gray-500 text-sm font-medium">Horas / día máximo</span>
-          </div>
-        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          * Debes dejar al menos 1 moneda activa.
+        </p>
       </div>
 
-      <div className="col-span-full flex justify-end mt-4 border-t border-white/5 pt-6">
-        <button 
-          onClick={guardar} 
-          disabled={saving}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-emerald-900/20 disabled:opacity-50 flex items-center gap-2"
-        >
-          {saving ? "Guardando..." : "💾 Guardar Finanzas"}
-        </button>
+      {/* Moneda meta */}
+      <div className="bg-[#161B22] border border-white/10 rounded-2xl p-4">
+        <p className="text-sm font-bold text-white mb-3">Moneda de metas</p>
+
+        <div className="flex flex-wrap gap-2">
+          {config.monedas_activas.map((m) => {
+            const selected = config.meta_moneda === m;
+            return (
+              <button
+                key={m}
+                onClick={() => setMetaMoneda(m)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                  selected
+                    ? "bg-blue-500/10 text-blue-200 border-blue-500/30"
+                    : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
+                }`}
+              >
+                {selected ? `✓ ${m}` : m}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-xs text-gray-500 mt-3">
+          La moneda de metas debe estar dentro de tus monedas activas.
+        </p>
       </div>
     </div>
   );
