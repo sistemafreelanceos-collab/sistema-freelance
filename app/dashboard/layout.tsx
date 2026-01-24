@@ -8,20 +8,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
 
-  const [colorFondo, setColorFondo] = useState("#0F1115");
+  // Estados
   const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Usuario
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("Usuario");
+  const [userInitials, setUserInitials] = useState("U");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [planUsuario, setPlanUsuario] = useState<"gratis" | "premium">("premium");
 
-  // Usuario real (Supabase)
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [userName, setUserName] = useState<string>("Usuario");
-  const [userInitials, setUserInitials] = useState<string>("U");
-  
-  // 1. NUEVO ESTADO PARA LA FOTO
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  // ✅ MENÚ (Tu menú personalizado)
+  // ✅ MENÚ ACTUALIZADO (Con Configuración)
   const MENU_ITEMS = [
     { ruta: "/dashboard", icon: "🏠", label: "Inicio" },
     { ruta: "/dashboard/calendario", icon: "📅", label: "Calendario" },
@@ -30,51 +28,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { ruta: "/dashboard/finanzas", icon: "💰", label: "Finanzas" },
     { ruta: "/dashboard/habitos", icon: "🥗", label: "Hábitos" },
     { ruta: "/dashboard/estadisticas", icon: "📈", label: "Estadísticas" },
+    // 👇 Nuevo ítem agregado
+    { ruta: "/dashboard/configuracion", icon: "⚙️", label: "Configuración" },
   ];
 
-  // Helper: iniciales
-  const makeInitials = (nameOrEmail: string) => {
-    const clean = (nameOrEmail || "").trim();
+  const makeInitials = (str: string) => {
+    const clean = (str || "").trim();
     if (!clean) return "U";
     if (clean.includes("@")) return clean.slice(0, 2).toUpperCase();
     const parts = clean.split(" ").filter(Boolean);
-    const a = parts[0]?.[0] ?? "U";
-    const b = parts[1]?.[0] ?? "";
-    return (a + b).toUpperCase();
+    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "U";
   };
 
-  // Traer sesión
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getSession();
       const session = data.session;
-
       if (!session) { router.push("/"); return; }
 
-      const email = session.user.email ?? "";
-      setUserEmail(email);
-
-      // Datos del usuario (Nombre y Foto)
-      const metaName = (session.user.user_metadata?.full_name as string) || (session.user.user_metadata?.name as string) || "";
+      setUserEmail(session.user.email ?? "");
+      const meta = session.user.user_metadata || {};
+      const name = meta.full_name || meta.name || session.user.email?.split("@")[0] || "Usuario";
       
-      // 2. AQUÍ CARGAMOS LA FOTO DESDE SUPABASE
-      const metaAvatar = (session.user.user_metadata?.avatar_url as string) || null;
+      setUserName(name);
+      setAvatarUrl(meta.avatar_url || null);
+      setUserInitials(makeInitials(name));
 
-      const displayName = metaName || (email ? email.split("@")[0] : "Usuario");
-      
-      setUserName(displayName);
-      setAvatarUrl(metaAvatar); // Guardamos la foto en el estado
-      setUserInitials(makeInitials(displayName || email));
+      // Cargar color
+      const { data: perfil } = await supabase.from("profiles").select("color_tema").eq("id", session.user.id).single();
+      const colorFinal = perfil?.color_tema || "#0F1115";
+      document.documentElement.style.setProperty('--sys-bg', colorFinal);
     };
-
     loadUser();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) { router.push("/"); return; }
-      setUserEmail(session.user.email ?? "");
-    });
-
-    return () => { sub.subscription.unsubscribe(); };
+    const handleThemeChange = (event: any) => {
+       if (event.detail) document.documentElement.style.setProperty('--sys-bg', event.detail);
+    };
+    window.addEventListener('change-theme', handleThemeChange);
+    return () => window.removeEventListener('change-theme', handleThemeChange);
   }, [router]);
 
   const handleLogout = async () => {
@@ -84,10 +75,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen text-white font-sans overflow-hidden transition-colors duration-500" style={{ backgroundColor: colorFondo }}>
+    // Fondo controlado por variable CSS
+    <div className="flex h-screen text-white font-sans overflow-hidden transition-colors duration-500" 
+         style={{ backgroundColor: 'var(--sys-bg, #0F1115)' }}>
       
-      {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#161B22]/95 backdrop-blur-xl border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      {/* SIDEBAR (Ahora semitransparente para que tome el color del fondo) */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-black/20 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black shadow-lg shadow-emerald-500/20">F</div>
@@ -112,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="px-4 pb-4">
-          {planUsuario === "premium" ? (
+          {planUsuario === "premium" && (
             <div className="bg-gradient-to-br from-yellow-500/20 to-amber-700/20 border border-yellow-500/30 p-4 rounded-xl text-center relative overflow-hidden group shadow-lg shadow-yellow-900/20">
               <div className="absolute top-0 right-0 w-20 h-20 bg-yellow-500/10 rounded-full blur-xl -mr-8 -mt-8 pointer-events-none"></div>
               <p className="text-[10px] text-yellow-200/70 uppercase font-bold mb-1 tracking-wider">Tu Membresía</p>
@@ -120,20 +113,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <span className="text-xl drop-shadow-md">👑</span>
                 <span className="font-bold text-white tracking-wide drop-shadow-md">PREMIUM</span>
               </div>
-              <p className="text-[10px] text-yellow-100/60">Acceso total habilitado</p>
-            </div>
-          ) : (
-            <div className="bg-gray-800/40 border border-white/10 p-4 rounded-xl text-center">
-              <p className="text-xs font-bold text-gray-300 mb-2">Plan Gratuito</p>
-              <button onClick={() => setPlanUsuario("premium")} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-lg transition shadow-lg shadow-emerald-900/20">💎 MEJORAR AHORA</button>
             </div>
           )}
-        </div>
-        
-        <div className="p-4 border-t border-white/5">
-           <div className="flex items-center gap-3 opacity-50 text-xs text-gray-400">
-              <span>🎨 Tema: Dark</span>
-           </div>
         </div>
       </aside>
 
@@ -151,23 +132,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={() => setMenuPerfilAbierto(!menuPerfilAbierto)} className="flex items-center gap-3 hover:bg-white/5 py-1.5 px-2 md:px-3 rounded-xl transition border border-transparent hover:border-white/10">
               <div className="text-right hidden md:block">
                 <p className="text-sm font-bold text-white">{userName}</p>
-                {planUsuario === "premium" && <p className="text-[10px] font-bold uppercase text-yellow-400 tracking-wide">★ PRO MEMBER</p>}
               </div>
-              
-              {/* 3. AQUÍ ESTÁ EL CAMBIO: ¿TIENE FOTO? ENTONCES ÚSALA */}
               {avatarUrl ? (
-                 <img 
-                    src={avatarUrl} 
-                    alt="Perfil" 
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-white/10 shadow-lg bg-gray-800"
-                 />
+                 <img src={avatarUrl} alt="Perfil" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-white/10 shadow-lg bg-gray-800"/>
               ) : (
-                 // SI NO, USA LA INICIAL
-                 <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white/10 shadow-lg">
-                    {userInitials}
-                 </div>
+                 <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white/10 shadow-lg">{userInitials}</div>
               )}
-              
             </button>
 
             {menuPerfilAbierto && (

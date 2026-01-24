@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --- MODO COMPACTO / DENSO --- */
+html {
+  font-size: 13px; /* Reducimos a 13px (El estándar "Pro" para Dashboards) */
+}
+
+/* Solo en monitores gigantes volvemos a tamaño normal */
+@media (min-width: 1920px) {
+  html {
+    font-size: 16px;
+  }
+}
+/* ----------------------------- */
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  /* Esto ayuda a que el texto no se sienta tan separado verticalmente */
+  line-height: 1.4; 
+}
+
+/* Scrollbars finos para ganar espacio */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1C2128; 
+}
+::-webkit-scrollbar-thumb {
+  background: #4B5563; 
+  border-radius: 3px;
+}
