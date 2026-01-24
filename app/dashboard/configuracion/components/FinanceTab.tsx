@@ -1,34 +1,33 @@
 "use client";
 
 import React from "react";
+import { ConfigPerfil } from "../types"; // <--- IMPORTAMOS EL TIPO OFICIAL
 
+// Eliminamos la definición local de ConfigPerfil y Moneda para usar la global o inferencia
 type Moneda = "USD" | "COP" | "EUR" | "MXN";
-
-export type ConfigPerfil = {
-  monedas_activas: Moneda[]; // ej: ["USD","COP"]
-  meta_moneda: Moneda;       // moneda de meta actual
-};
+const ALL_MONEDAS: Moneda[] = ["USD", "COP", "EUR", "MXN"];
 
 type Props = {
   config: ConfigPerfil;
   setConfig: React.Dispatch<React.SetStateAction<ConfigPerfil>>;
+  guardar?: () => Promise<void>; // Opcional si lo usas
+  saving?: boolean; // Opcional
 };
 
-const ALL_MONEDAS: Moneda[] = ["USD", "COP", "EUR", "MXN"];
-
 export default function FinanceTab({ config, setConfig }: Props) {
-  const toggleMoneda = (moneda: Moneda) => {
-    setConfig((prev: ConfigPerfil) => {
-      const already = prev.monedas_activas.includes(moneda);
+  const toggleMoneda = (moneda: string) => {
+    setConfig((prev) => {
+      const currentList = prev.monedas_activas || [];
+      const already = currentList.includes(moneda);
 
       // Evitar quedarte con 0 monedas activas
-      if (already && prev.monedas_activas.length === 1) {
+      if (already && currentList.length === 1) {
         return prev;
       }
 
       const updated = already
-        ? prev.monedas_activas.filter((m) => m !== moneda)
-        : [...prev.monedas_activas, moneda];
+        ? currentList.filter((m) => m !== moneda)
+        : [...currentList, moneda];
 
       // Si la moneda de la meta queda desactivada, se reasigna
       const metaNueva =
@@ -44,9 +43,10 @@ export default function FinanceTab({ config, setConfig }: Props) {
     });
   };
 
-  const setMetaMoneda = (moneda: Moneda) => {
+  const setMetaMoneda = (moneda: string) => {
+    const currentList = config.monedas_activas || [];
     // Solo permitir meta en una moneda activa
-    if (!config.monedas_activas.includes(moneda)) {
+    if (!currentList.includes(moneda)) {
       alert("Activa esa moneda primero para poder usarla como meta.");
       return;
     }
@@ -68,7 +68,7 @@ export default function FinanceTab({ config, setConfig }: Props) {
 
         <div className="flex flex-wrap gap-2">
           {ALL_MONEDAS.map((m) => {
-            const active = config.monedas_activas.includes(m);
+            const active = config.monedas_activas?.includes(m);
             return (
               <button
                 key={m}
@@ -95,7 +95,7 @@ export default function FinanceTab({ config, setConfig }: Props) {
         <p className="text-sm font-bold text-white mb-3">Moneda de metas</p>
 
         <div className="flex flex-wrap gap-2">
-          {config.monedas_activas.map((m) => {
+          {(config.monedas_activas || []).map((m) => {
             const selected = config.meta_moneda === m;
             return (
               <button
