@@ -1,42 +1,36 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { 
-  BanknotesIcon, 
-  ArrowTrendingUpIcon, 
-  CreditCardIcon, 
-  CalendarDaysIcon,
-  CalculatorIcon
-} from "@heroicons/react/24/solid";
+  WalletIcon, 
+  PresentationChartLineIcon, 
+  ChartBarIcon, 
+  CreditCardIcon
+} from "@heroicons/react/24/outline";
+import { Movimiento, GastoFijo, Presupuesto, ConfigFinanzas } from "./types";
 
-// Importar Componentes
+// Importamos tus componentes
 import TableroTab from "./components/TableroTab";
-import RentabilidadTab from "./components/RentabilidadTab";
-import PresupuestosTab from "./components/PresupuestosTab"; // (Si no usas este, puedes comentarlo)
+import PresupuestosTab from "./components/PresupuestosTab";
 import GastosFijosTab from "./components/GastosFijosTab";
-import { ModalesFinanzas } from "./components/ModalesFinanzas";
-
-// Importar Tipos
-import { Movimiento, GastoFijo, Presupuesto } from "./types";
+import { ModalMovimiento, ModalPresupuesto, ModalGastoFijo } from "./components/ModalesFinanzas";
 
 export default function FinanzasPage() {
+  const [activeTab, setActiveTab] = useState("tablero");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tablero' | 'rentabilidad' | 'presupuestos' | 'fijos'>('tablero');
   
-  // Datos
+  // --- ESTADOS DE DATOS ---
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([]);
-  const [cuentas, setCuentas] = useState<any[]>([]);
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
-  
-  // Estado para Modales
-  const [modales, setModales] = useState({
-      ingreso: false,
-      gasto: false,
-      fijo: false,
-      presupuesto: false
-  });
+  const [cuentas, setCuentas] = useState<any[]>([]);
+  const [config, setConfig] = useState<ConfigFinanzas>({ porcentaje_ahorro: 10 });
 
+  // --- ESTADOS DE MODALES ---
+  const [modales, setModales] = useState({ mov: false, fijo: false, presu: false });
+
+  // --- CARGA INICIAL ---
   useEffect(() => {
     cargarDatos();
   }, []);
@@ -47,129 +41,156 @@ export default function FinanzasPage() {
     if (!session) return;
     const uid = session.user.id;
 
-    // 1. Cargar Movimientos
-    const { data: movs } = await supabase
-        .from("movimientos")
-        .select("*")
-        .eq("owner_id", uid)
-        .order('fecha', { ascending: false });
+    // Cargamos TODO
+    const [movs, fijos, presus, conf, ctas] = await Promise.all([
+      supabase.from("movimientos").select("*").eq("owner_id", uid).limit(2000), 
+      supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
+      supabase.from("presupuestos").select("*").eq("owner_id", uid),
+      supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(),
+      supabase.from("cuentas").select("id, nombre").eq("owner_id", uid)
+    ]);
 
-    // 2. Cargar Gastos Fijos
-    const { data: fijos } = await supabase
-        .from("gastos_fijos")
-        .select("*")
-        .eq("owner_id", uid)
-        .eq("activo", true);
+    // Procesamos Movimientos
+    if (movs.data && ctas.data) {
+        const mapCuentas = new Map(ctas.data.map((c: any) => [c.id, c.nombre]));
+        
+        let listaOrdenada = movs.data.map((m: any) => ({
+            ...m,
+            cuenta_nombre: m.cuenta_id ? mapCuentas.get(m.cuenta_id) : '---'
+        }));
 
-    // 3. Cargar Cuentas
-    const { data: accs } = await supabase
-        .from("cuentas")
-        .select("*")
-        .eq("owner_id", uid);
+        // Ordenamiento: Fecha > Hora
+        listaOrdenada.sort((a: any, b: any) => {
+            const fechaA = new Date(a.fecha).getTime();
+            const fechaB = new Date(b.fecha).getTime();
+            if (fechaA !== fechaB) return fechaB - fechaA;
+            const horaA = new Date(a.created_at || 0).getTime();
+            const horaB = new Date(b.created_at || 0).getTime();
+            return horaB - horaA;
+        });
 
-    // 4. Cargar Presupuestos (opcional si usas ese módulo)
-    const { data: pres } = await supabase
-        .from("presupuestos")
-        .select("*")
-        .eq("owner_id", uid);
+        setMovimientos(listaOrdenada as any);
+    }
 
-    setMovimientos(movs || []);
-    setGastosFijos(fijos || []);
-    setCuentas(accs || []);
-    setPresupuestos(pres || []);
+    if (fijos.data) setGastosFijos(fijos.data as any);
+    if (presus.data) setPresupuestos(presus.data as any);
+    if (ctas.data) setCuentas(ctas.data as any);
+    
+    if (conf.data) {
+        setConfig(conf.data as any);
+    } else {
+        await supabase.from("config_finanzas").insert({ owner_id: uid, porcentaje_ahorro: 10 });
+    }
+
     setLoading(false);
   };
 
-  // Botón genérico para menú
-  const TabButton = ({ id, label, icon: Icon }: any) => (
-      <button 
-        onClick={() => setActiveTab(id)}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${
-            activeTab === id 
-            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' 
-            : 'text-gray-400 hover:text-white hover:bg-white/5'
-        }`}
-      >
-        <Icon className="w-5 h-5" />
-        <span className="hidden md:inline">{label}</span>
-      </button>
-  );
+  // --- GUARDAR ---
+  const handleSave = async (tabla: string, data: any, modalKey: keyof typeof modales) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase.from(tabla).insert({ 
+          owner_id: session?.user.id, 
+          ...data 
+      });
 
-  if (loading) return <div className="p-10 text-center text-gray-500 animate-pulse">Cargando tus finanzas...</div>;
+      if (error) {
+          alert("Error: " + error.message);
+      } else {
+          await cargarDatos(); 
+          setModales({ ...modales, [modalKey]: false }); 
+      }
+  };
+
+  const handleUpdateConfig = async (key: string, val: number) => {
+      setConfig({ ...config, [key]: val }); 
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase.from("config_finanzas").update({ [key]: val }).eq("owner_id", session?.user.id);
+  };
+
+  const saldoTotalActual = movimientos.reduce((acc, m) => acc + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0);
+
+  if (loading) return <div className="p-10 text-gray-400 animate-pulse">Cargando...</div>;
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 p-6">
+    <div className="max-w-7xl mx-auto pb-20 p-4 sm:p-6">
       
-      {/* Header */}
-      <div className="flex justify-between items-end mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Centro Financiero 💰</h1>
-            <p className="text-gray-400 text-sm">Gestiona tu flujo de caja inteligente.</p>
-          </div>
-          <div className="flex gap-2">
-              <button 
-                onClick={() => setModales({...modales, gasto: true})}
-                className="bg-red-500/10 text-red-400 border border-red-500/50 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500 hover:text-white transition"
-              >
-                  - Gasto
-              </button>
-              <button 
-                onClick={() => setModales({...modales, ingreso: true})}
-                className="bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition"
-              >
-                  + Ingreso
-              </button>
-          </div>
+      {/* HEADER */}
+      <div className="flex flex-col lg:flex-row justify-between items-end mb-8 gap-6">
+        <div>
+            <h1 className="text-3xl font-bold text-white mb-1 flex items-center gap-2">
+                <WalletIcon className="w-8 h-8 text-indigo-500" /> 
+                CFO Virtual
+            </h1>
+            <p className="text-gray-400 text-sm">Control total de flujo de caja.</p>
+        </div>
+        
+        {/* TABS */}
+        <div className="flex bg-[#161B22] rounded-xl p-1 border border-white/10 overflow-x-auto w-full lg:w-auto">
+            {[
+                { id: "tablero", label: "Tablero", icon: PresentationChartLineIcon },
+                { id: "presupuestos", label: "Semáforo", icon: ChartBarIcon },
+                { id: "fijos", label: "Recurrentes", icon: CreditCardIcon },
+            ].map((tab) => (
+                <button 
+                    key={tab.id} 
+                    onClick={() => setActiveTab(tab.id)} 
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                >
+                    <tab.icon className="w-4 h-4" /> {tab.label}
+                </button>
+            ))}
+        </div>
       </div>
 
-      {/* Navegación Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 border-b border-white/10">
-          <TabButton id="tablero" label="Tablero" icon={BanknotesIcon} />
-          <TabButton id="rentabilidad" label="Rentabilidad" icon={ArrowTrendingUpIcon} />
-          <TabButton id="fijos" label="Gastos Fijos" icon={CalendarDaysIcon} />
-          <TabButton id="presupuestos" label="Presupuestos" icon={CalculatorIcon} />
-      </div>
+      {/* VISTAS */}
+      {activeTab === 'tablero' && (
+        <TableroTab 
+            movimientos={movimientos} 
+            gastosFijos={gastosFijos} 
+            config={config} 
+            saldoActual={saldoTotalActual}
+            onUpdateConfig={handleUpdateConfig}
+            onOpenModal={() => setModales({ ...modales, mov: true })}
+        />
+      )}
 
-      {/* Contenido Dinámico */}
-      <div className="min-h-[400px]">
-          {activeTab === 'tablero' && (
-              <TableroTab 
-                movimientos={movimientos} 
-                cuentas={cuentas} 
-                onRecargar={cargarDatos} 
-              />
-          )}
+      {activeTab === 'presupuestos' && (
+        <PresupuestosTab 
+            movimientos={movimientos} 
+            presupuestos={presupuestos} 
+            onOpenModal={() => setModales({ ...modales, presu: true })} 
+        />
+      )}
+      
+      {activeTab === 'fijos' && (
+         <GastosFijosTab 
+            gastosFijos={gastosFijos} 
+            // movimientos={movimientos}  <--- ¡LÍNEA ELIMINADA!
+            cuentas={cuentas} 
+            onOpenModal={() => setModales({...modales, fijo: true})} 
+            onRecargar={cargarDatos}
+         />
+      )}
 
-          {activeTab === 'rentabilidad' && (
-              <RentabilidadTab 
-                movimientos={movimientos} 
-              />
-          )}
+      {/* --- MODALES --- */}
+      
+      <ModalMovimiento 
+        isOpen={modales.mov} 
+        onClose={() => setModales({ ...modales, mov: false })} 
+        onSave={(d: any) => handleSave("movimientos", d, "mov")} 
+        cuentas={cuentas} 
+      />
 
-          {activeTab === 'fijos' && (
-             <GastosFijosTab 
-                gastosFijos={gastosFijos} 
-                cuentas={cuentas} 
-                onOpenModal={() => setModales({...modales, fijo: true})} 
-                onRecargar={cargarDatos}
-             />
-          )}
+      <ModalPresupuesto 
+        isOpen={modales.presu} 
+        onClose={() => setModales({ ...modales, presu: false })} 
+        onSave={(d: any) => handleSave("presupuestos", d, "presu")} 
+      />
 
-          {activeTab === 'presupuestos' && (
-              <PresupuestosTab
-                  presupuestos={presupuestos}
-                  movimientos={movimientos}
-                  onOpenModal={() => setModales({...modales, presupuesto: true})}
-              />
-          )}
-      </div>
-
-      {/* Modales Globales */}
-      <ModalesFinanzas 
-          isOpen={modales}
-          onClose={(tipo) => setModales({...modales, [tipo]: false})}
-          onRecargar={cargarDatos}
-          cuentas={cuentas}
+      <ModalGastoFijo 
+        isOpen={modales.fijo} 
+        onClose={() => setModales({ ...modales, fijo: false })} 
+        onSave={(d: any) => handleSave("gastos_fijos", d, "fijo")} 
       />
 
     </div>
