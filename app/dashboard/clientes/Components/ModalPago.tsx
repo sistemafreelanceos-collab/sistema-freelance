@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabaseClient";
 import { Cliente, Cuenta, Moneda, Proyecto } from "../tipos";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 interface Props {
   isOpen: boolean;
@@ -43,7 +42,6 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
 
         if (proyecto) {
             deudaCalc = proyecto.monto;
-            // Calcular lo que YA se ha pagado en este proyecto
             pagadoCalc = proyecto.pagos_cliente?.reduce((sum, p) => sum + p.monto, 0) || 0;
             const restante = Math.max(0, deudaCalc - pagadoCalc);
             montoSugerido = restante.toString();
@@ -73,10 +71,8 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
       }
   }, [montoIngresado, esPagoTotal, proyecto]);
 
-  // --- LÓGICA DE ACTUALIZACIÓN DE FECHA ---
   const calcularProximaFecha = (fechaActual: string, frecuencia: string) => {
       const date = new Date(fechaActual);
-      // Ajustar zona horaria simple para no perder días
       const userTimezoneOffset = date.getTimezoneOffset() * 60000;
       const localDate = new Date(date.getTime() + userTimezoneOffset);
 
@@ -117,7 +113,7 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
         let comprobanteUrl = null;
         if (archivo) comprobanteUrl = await subirComprobante(archivo);
 
-        // 1. Registrar Pago
+        // 1. Registrar Pago (El Trigger de SQL se encargará de crear el movimiento en Finanzas automáticamente)
         const { data: pagoRow, error } = await supabase.from("pagos_cliente").insert({
           owner_id: userId, 
           cliente_id: cliente.id, 
@@ -133,28 +129,13 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
 
         if (error) throw error;
 
-        // 2. Movimiento Caja
-        await supabase.from("movimientos").insert({
-          owner_id: userId, cuenta_id: form.cuenta_id, tipo: 'ingreso', categoria: 'negocio',
-          fuente: 'pago_cliente', cliente_id: cliente.id, pago_cliente_id: pagoRow.id,
-          fecha: form.fecha_pago, monto: Number(form.monto), moneda: form.moneda, referencia: form.referencia
-        });
-
-        // 3. ACTUALIZACIÓN INTELIGENTE DE FECHA (Si es recurrente y pagó todo)
+        // 2. ACTUALIZACIÓN INTELIGENTE DE FECHA
         if (proyecto && esPagoTotal && proyecto.frecuencia_pago && proyecto.frecuencia_pago !== "unidad") {
             const nuevaFecha = calcularProximaFecha(proyecto.fecha_inicio || form.fecha_pago, proyecto.frecuencia_pago);
-            
-            await supabase.from("proyectos").update({
-                fecha_inicio: nuevaFecha,
-                // Opcional: Reiniciar entregables si es un nuevo ciclo
-                // entregables_listos: 0 
-            }).eq("id", proyecto.id);
-
-            alert(`📅 ¡Excelente! Como se completó el pago ${proyecto.frecuencia_pago}, la fecha del próximo cobro se movió al: ${nuevaFecha}`);
+            await supabase.from("proyectos").update({ fecha_inicio: nuevaFecha }).eq("id", proyecto.id);
+            alert(`📅 Próximo cobro actualizado a: ${nuevaFecha}`);
         }
 
-        // 4. Actualizar Estado Local
-        // Nota: Idealmente recargamos la data en page.tsx, pero por ahora simulamos
         const nuevosPagos = [...(cliente.pagos_cliente || []), { monto: Number(form.monto) }];
         const clienteActualizado = { ...cliente, pagos_cliente: nuevosPagos };
 
@@ -207,7 +188,6 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
             </div>
 
             <input value={form.referencia} onChange={e => setForm({...form, referencia: e.target.value})} placeholder="Referencia / Comprobante *" className="w-full bg-black/40 border border-emerald-500/30 p-3 rounded-xl text-white outline-none" />
-            
             <input type="file" onChange={e => setArchivo(e.target.files?.[0] || null)} className="w-full text-xs text-gray-400" />
 
             <div className="flex gap-2 pt-2">

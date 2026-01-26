@@ -1,293 +1,214 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { Views } from 'react-big-calendar';
+import moment from 'moment';
+import { PlusIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 
-// --- TIPOS CORREGIDOS ---
-// Aquí estaba el error: definimos explícitamente qué textos son válidos
-type Categoria = "Urgente" | "Diseño" | "Dev" | "Reunión" | "Admin";
-
-type Tarea = {
-  id: string;
-  titulo: string;
-  fecha: string; // ISO String
-  categoria: Categoria | string; // Permitimos string para evitar bloqueos
-  descripcion?: string;
-  completada: boolean;
-};
-
-// Configuración de colores por categoría
-const CATEGORIAS: Record<string, string> = {
-  Urgente: "bg-red-500",
-  Diseño: "bg-purple-500",
-  Dev: "bg-blue-500",
-  Reunión: "bg-yellow-500",
-  Admin: "bg-gray-500",
-};
+// Imports
+import CalendarBoard from "./components/CalendarBoard";
+import NotesBoard from "./components/NotesBoard";
+import IncomingPayments from "./components/IncomingPayments";
+import DailyCapacity from "./components/DailyCapacity"; 
+import FilterBar from "./components/FilterBar"; 
+import { ModalCrear, ModalDetalle } from "./components/ModalesCalendario";
+import { EventoCalendario, PostIt, TipoNota } from './types';
 
 export default function CalendarioPage() {
-  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const router = useRouter();
+  const [eventosDB, setEventosDB] = useState<EventoCalendario[]>([]);
+  const [postIts, setPostIts] = useState<PostIt[]>([]);
+  const [proyectosRaw, setProyectosRaw] = useState<any[]>([]);
+  const [proyectosList, setProyectosList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState<"Todas" | Categoria>("Todas");
 
-  // Estados para Modales
-  const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false);
-  const [tareaSeleccionada, setTareaSeleccionada] = useState<Tarea | null>(null);
+  // Estados UI
+  const [view, setView] = useState(Views.MONTH);
+  const [date, setDate] = useState(new Date());
+  const [filtros, setFiltros] = useState({ tareas: true, cobros: true }); 
 
-  // Estado del Formulario
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [modalTipo, setModalTipo] = useState<'tarea' | 'postit'>('tarea');
+  const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null);
+
   const [formulario, setFormulario] = useState({
-    titulo: "",
-    descripcion: "",
-    fecha: "",
-    categoria: "Diseño" as string, // Forzamos a string genérico para evitar error
+    titulo: "", descripcion: "", fecha: "", hora: "09:00", categoria: "Diseño" as string, colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false 
   });
 
-  // Cargar Tareas al inicio
-  useEffect(() => {
-    cargarTareas();
-  }, []);
+  const onNavigate = useCallback((newDate: Date) => setDate(newDate), [setDate]);
 
-  const cargarTareas = async () => {
+  // Filtros
+  const eventosVisibles = useMemo(() => {
+      let lista = [...eventosDB];
+      if (!filtros.tareas) lista = lista.filter(e => e.resource?.tipo_evento !== 'tarea' && e.resource?.tipo_evento !== 'proyecto');
+      if (!filtros.cobros) lista = lista.filter(e => e.resource?.tipo_evento !== 'cobro' && e.resource?.tipo_evento !== 'gasto');
+      return lista;
+  }, [eventosDB, filtros]);
+
+  useEffect(() => { cargarDatos(); }, []);
+
+  const cargarDatos = async () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const uid = session.user.id;
 
-    const { data, error } = await supabase
-      .from("tareas")
-      .select("*")
-      .eq("owner_id", session.user.id)
-      .order("fecha", { ascending: true });
+    // AQUI: Agregamos 'tiempo_acumulado' a la consulta de proyectos
+    const [tareas, gastos, proyectos, notas] = await Promise.all([
+        supabase.from("tareas").select("*, proyectos(nombre)").eq("owner_id", uid),
+        supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
+        supabase.from("proyectos").select("id, nombre, monto, moneda, fecha_inicio, fecha_fin, estado, cliente_id, clientes(nombre), tiempo_acumulado").eq("owner_id", uid),
+        supabase.from("notas_calendario").select("*").eq("owner_id", uid)
+    ]);
 
-    if (!error && data) {
-      setTareas(data as Tarea[]);
-    }
+    setProyectosRaw(proyectos.data || []);
+    setProyectosList(proyectos.data?.map((p: any) => ({ id: p.id, nombre: p.clientes?.nombre ? `${p.nombre} - ${p.clientes.nombre}` : p.nombre })) || []);
+
+    const lista: EventoCalendario[] = [];
+    
+    // Tareas
+    tareas.data?.forEach((t: any) => {
+        try {
+            const fechaBase = t.fecha; let horaStr = t.hora || "09:00:00"; if (horaStr.length === 5) horaStr += ":00";
+            const start = new Date(`${fechaBase}T${horaStr}`);
+            const end = new Date(start.getTime() + (60 * 60 * 1000));
+            let titulo = t.titulo;
+            if (t.proyectos) titulo = `📂 ${t.proyectos.nombre}: ${t.titulo}`;
+            
+            lista.push({ 
+                id: t.id, title: titulo, start, end, allDay: !t.hora, 
+                resource: { ...t, descripcion: t.descripcion, tipo_evento: 'tarea', es_automatico: false, projectId: t.proyecto_id, completada: t.completada } 
+            });
+        } catch (e) {}
+    });
+
+    // Gastos
+    gastos.data?.forEach((g: any) => {
+         const hoy = new Date(); const mesActual = hoy.getMonth(); const anio = hoy.getFullYear();
+         [-1, 0, 1, 2, 3].forEach(offset => {
+             const fPago = new Date(anio, mesActual + offset, g.dia_pago);
+             let pagadoEsteMes = false;
+             if (offset === 0 && g.ultimo_pago) {
+                 const fUltimo = new Date(g.ultimo_pago);
+                 if (fUltimo.getMonth() === mesActual && fUltimo.getFullYear() === anio) pagadoEsteMes = true;
+             }
+             const color = pagadoEsteMes ? "#10B981" : "#EF4444";
+             const titulo = pagadoEsteMes ? `✅ ${g.nombre}` : `💸 -$${g.monto} ${g.nombre}`;
+             lista.push({ id: `auto-${g.id}-${offset}`, title: titulo, start: fPago, end: fPago, allDay: true, resource: { descripcion: "Gasto Recurrente", categoria: "Pagos", tipo_evento: 'gasto', es_automatico: true, colorOverride: color, completada: pagadoEsteMes } });
+         });
+    });
+
+    // Proyectos (Cobros)
+    proyectos.data?.forEach((p: any) => {
+        if (p.fecha_inicio) {
+            const fi = new Date(`${p.fecha_inicio}T09:00:00`);
+            const fc = p.fecha_fin ? new Date(`${p.fecha_fin}T09:00:00`) : new Date(fi.getTime() + (30 * 24 * 60 * 60 * 1000));
+            if(p.estado !== 'cancelado') {
+                lista.push({ id: `cobro-${p.id}`, title: `💰 $${p.monto} - ${p.clientes?.nombre || 'Cliente'}`, start: fc, end: fc, allDay: true, resource: { categoria: "Cobro", tipo_evento: 'cobro', es_automatico: true, colorOverride: "#10B981" } });
+            }
+        }
+    });
+
+    setEventosDB(lista);
+    setPostIts(notas.data?.map((n: any) => ({ id: n.id, texto: n.texto, fecha: n.fecha, color: n.color || 'amarillo', rotacion: n.rotacion || (Math.random() * 6 - 3) })) || []);
     setLoading(false);
   };
 
-  // Crear Nueva Tarea
-  const guardarTarea = async () => {
-    if (!formulario.titulo || !formulario.fecha) return alert("Faltan datos");
+  // --- LÓGICA DE GUARDADO DE TIEMPO ---
+  const handleSaveSession = async (seconds: number, completed: boolean) => {
+      if (!eventoSeleccionado) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+      // 1. Marcar tarea completada si el usuario lo indicó
+      if (completed) {
+          await supabase.from("tareas").update({ completada: true }).eq("id", eventoSeleccionado.id);
+      }
 
-    const nuevaTarea = {
-      owner_id: session.user.id,
-      titulo: formulario.titulo,
-      descripcion: formulario.descripcion,
-      fecha: formulario.fecha,
-      categoria: formulario.categoria,
-      completada: false
-    };
+      // 2. Si la tarea tiene proyecto, sumar tiempo
+      if (eventoSeleccionado.resource?.projectId) {
+          const proyectoId = eventoSeleccionado.resource.projectId;
+          
+          // Leer tiempo actual
+          const { data: proy } = await supabase.from("proyectos").select("tiempo_acumulado").eq("id", proyectoId).single();
+          const tiempoActual = Number(proy?.tiempo_acumulado || 0);
+          
+          // Actualizar con nuevos segundos
+          await supabase.from("proyectos").update({ 
+              tiempo_acumulado: tiempoActual + seconds 
+          }).eq("id", proyectoId);
+          
+          const minutos = Math.floor(seconds / 60);
+          if (minutos > 0) alert(`✅ Se agregaron ${minutos} minutos al proyecto.`);
+      }
 
-    const { error } = await supabase.from("tareas").insert(nuevaTarea);
-
-    if (error) {
-      alert("Error al guardar: " + error.message);
-    } else {
-      setModalNuevoAbierto(false);
-      resetFormulario();
-      cargarTareas();
-    }
+      setEventoSeleccionado(null);
+      cargarDatos();
   };
 
-  // Borrar Tarea
-  const borrarTarea = async (id: string) => {
-    const confirmar = confirm("¿Seguro de borrar esta tarea?");
-    if (!confirmar) return;
-
-    const { error } = await supabase.from("tareas").delete().eq("id", id);
-    if (!error) {
-      setTareaSeleccionada(null);
-      cargarTareas();
-    }
+  const guardarItem = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!formulario.titulo) return alert("Falta información");
+      if (modalTipo === 'tarea') {
+          const insertData: any = { owner_id: session?.user.id, titulo: formulario.titulo, descripcion: formulario.descripcion, fecha: formulario.fecha, hora: formulario.hora, categoria: formulario.categoria, proyecto_id: formulario.proyectoId || null, completada: false };
+          if (formulario.recurrente) {
+              const promesas = [];
+              for (let i = 0; i < 6; i++) {
+                  const fOriginal = new Date(formulario.fecha);
+                  const nuevaFecha = new Date(new Date(fOriginal).setMonth(fOriginal.getMonth() + i)).toISOString().split('T')[0];
+                  promesas.push(supabase.from("tareas").insert({ ...insertData, fecha: nuevaFecha }));
+              }
+              await Promise.all(promesas);
+          } else { await supabase.from("tareas").insert(insertData); }
+      } else {
+          await supabase.from("notas_calendario").insert({ owner_id: session?.user.id, fecha: new Date().toISOString(), texto: formulario.titulo, color: formulario.colorPostit });
+      }
+      setModalAbierto(false); cargarDatos();
   };
 
-  // Completar Tarea
-  const toggleCompletada = async (tarea: Tarea) => {
-    const { error } = await supabase
-      .from("tareas")
-      .update({ completada: !tarea.completada })
-      .eq("id", tarea.id);
+  const borrarItem = async (id: string, tabla: string) => { if(!confirm("¿Eliminar?")) return; await supabase.from(tabla).delete().eq("id", id); if(tabla === 'tareas') setEventoSeleccionado(null); cargarDatos(); };
+  const completarTarea = async () => { if (!eventoSeleccionado) return; await supabase.from("tareas").update({ completada: !eventoSeleccionado.resource?.completada }).eq("id", eventoSeleccionado.id); setEventoSeleccionado(null); cargarDatos(); };
+  const descargarICS = () => { /* ... */ };
+  const onEventDrop = useCallback(async ({ event, start, end }: any) => { if (event.resource.es_automatico) return; const fechaStr = moment(start).format('YYYY-MM-DD'); const horaStr = moment(start).format('HH:mm'); await supabase.from("tareas").update({ fecha: fechaStr, hora: horaStr }).eq("id", event.id); cargarDatos(); }, []);
 
-    if (!error) cargarTareas();
-  };
-
-  // Helpers de UI
-  const resetFormulario = () => setFormulario({ titulo: "", descripcion: "", fecha: new Date().toISOString().split('T')[0], categoria: "Diseño" });
-  
-  const abrirModalCrear = () => { 
-    resetFormulario(); 
-    setModalNuevoAbierto(true); 
-  };
-
-  const abrirModalDetalle = (tarea: Tarea) => { 
-    setTareaSeleccionada(tarea); 
-    // Al abrir detalle, no necesitamos llenar el formulario de creación, solo mostrar datos.
-  };
-
-  // Filtrado visual
-  const tareasFiltradas = filtro === "Todas" 
-    ? tareas 
-    : tareas.filter(t => t.categoria === filtro);
-
-  if (loading) return <div className="text-white text-center py-20">Cargando calendario...</div>;
+  if (loading) return <div className="text-white text-center py-20 animate-pulse">Cargando...</div>;
 
   return (
-    <div className="max-w-5xl mx-auto pb-20">
+    <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row overflow-hidden bg-[#0D1117]">
+      <div className="flex-1 p-6 flex flex-col h-full overflow-hidden">
+          <div className="flex justify-between items-end mb-4">
+              <div><h1 className="text-3xl font-bold text-white">Agenda Operativa</h1><p className="text-gray-400 text-sm">Finanzas, Proyectos y Tiempo.</p></div>
+              <div className="flex gap-2">
+                  <button onClick={descargarICS} className="bg-white/5 text-gray-400 px-3 py-2 rounded-lg hover:text-white transition" title="Exportar iCal"><ArrowDownTrayIcon className="w-5 h-5"/></button>
+                  <button onClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: new Date().toISOString().split('T')[0], hora: "09:00", categoria: "Diseño", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('tarea'); setModalAbierto(true); }} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition shadow-lg flex items-center gap-2"><PlusIcon className="w-4 h-4"/> Agendar</button>
+              </div>
+          </div>
+          
+          <FilterBar filtros={filtros} toggleFiltro={(k) => setFiltros(prev => ({ ...prev, [k]: !prev[k] }))} />
+
+          <CalendarBoard 
+            eventos={eventosVisibles} view={view} setView={setView} date={date} onNavigate={onNavigate} onEventDrop={onEventDrop} onSelectEvent={setEventoSeleccionado}
+            onSelectSlot={(slot) => { const dateStr = moment(slot.start).format('YYYY-MM-DD'); setFormulario(prev => ({ ...prev, fecha: dateStr, hora: "09:00", titulo: "", proyectoId: "", recurrente: false })); setModalTipo('tarea'); setModalAbierto(true); }}
+          />
+      </div>
+
+      <div className="w-full lg:w-[350px] bg-[#121418] border-l border-white/10 flex flex-col h-full overflow-y-auto custom-scrollbar">
+          <div className="px-6 pt-6">
+              <DailyCapacity eventos={eventosVisibles} fechaSeleccionada={eventoSeleccionado ? eventoSeleccionado.start : date} />
+          </div>
+          <NotesBoard postIts={postIts} onAddClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: "", hora: "", categoria: "", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('postit'); setModalAbierto(true); }} onDeleteNote={(id) => borrarItem(id, 'notas_calendario')} />
+          <div className="px-6 pb-6"><IncomingPayments proyectos={proyectosRaw} /></div>
+      </div>
+
+      <ModalCrear isOpen={modalAbierto} onClose={() => setModalAbierto(false)} onSave={guardarItem} modalTipo={modalTipo} setModalTipo={setModalTipo} formulario={formulario} setFormulario={setFormulario} proyectos={proyectosList} />
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-1">Agenda & Tareas</h1>
-          <p className="text-gray-400">Organiza tus entregas y reuniones.</p>
-        </div>
-        <button 
-          onClick={abrirModalCrear}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-emerald-900/20 transition flex items-center gap-2"
-        >
-          <span>+</span> Nueva Tarea
-        </button>
-      </div>
-
-      {/* Filtros */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {["Todas", "Urgente", "Diseño", "Dev", "Reunión", "Admin"].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFiltro(cat as any)}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold border transition whitespace-nowrap ${
-              filtro === cat 
-                ? "bg-white text-black border-white" 
-                : "bg-transparent text-gray-400 border-gray-700 hover:border-gray-500"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Grid de Tareas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tareasFiltradas.length === 0 ? (
-          <p className="text-gray-500 col-span-full text-center py-10">No hay tareas en esta vista.</p>
-        ) : (
-          tareasFiltradas.map((tarea) => (
-            <div 
-              key={tarea.id}
-              onClick={() => abrirModalDetalle(tarea)}
-              className={`group p-4 rounded-xl border border-white/5 bg-[#161B22] hover:border-white/20 transition cursor-pointer relative overflow-hidden ${tarea.completada ? 'opacity-50 grayscale' : ''}`}
-            >
-              <div className={`absolute top-0 left-0 w-1 h-full ${CATEGORIAS[tarea.categoria as string] || 'bg-gray-500'}`}></div>
-              
-              <div className="pl-3">
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded text-white/90 ${CATEGORIAS[tarea.categoria as string] || 'bg-gray-500'}`}>
-                    {tarea.categoria}
-                  </span>
-                  <span className="text-xs text-gray-500 font-mono">
-                    {tarea.fecha}
-                  </span>
-                </div>
-                
-                <h3 className={`font-bold text-white mb-1 group-hover:text-emerald-400 transition ${tarea.completada ? 'line-through' : ''}`}>
-                  {tarea.titulo}
-                </h3>
-                
-                {tarea.descripcion && (
-                  <p className="text-sm text-gray-400 line-clamp-2">{tarea.descripcion}</p>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* MODAL NUEVA TAREA */}
-      {modalNuevoAbierto && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161B22] border border-white/10 p-6 rounded-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-            <h2 className="text-xl font-bold text-white mb-4">Nueva Tarea</h2>
-            
-            <div className="space-y-4">
-              <input 
-                type="text" 
-                placeholder="Título de la tarea..." 
-                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-emerald-500 outline-none"
-                value={formulario.titulo}
-                onChange={e => setFormulario({...formulario, titulo: e.target.value})}
-              />
-              
-              <div className="grid grid-cols-2 gap-4">
-                <input 
-                  type="date" 
-                  className="bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-emerald-500 outline-none"
-                  value={formulario.fecha}
-                  onChange={e => setFormulario({...formulario, fecha: e.target.value})}
-                />
-                <select 
-                  className="bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-emerald-500 outline-none"
-                  value={formulario.categoria}
-                  onChange={e => setFormulario({...formulario, categoria: e.target.value})}
-                >
-                  {Object.keys(CATEGORIAS).map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-              </div>
-
-              <textarea 
-                placeholder="Descripción (opcional)..." 
-                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-emerald-500 outline-none h-24 resize-none"
-                value={formulario.descripcion}
-                onChange={e => setFormulario({...formulario, descripcion: e.target.value})}
-              />
-
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setModalNuevoAbierto(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-400 hover:bg-white/5 transition">Cancelar</button>
-                <button onClick={guardarTarea} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20">Guardar Tarea</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DETALLE TAREA */}
-      {tareaSeleccionada && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161B22] border border-white/10 p-6 rounded-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-start mb-4">
-                <span className={`text-xs font-bold uppercase px-2 py-1 rounded text-white ${CATEGORIAS[tareaSeleccionada.categoria as string] || 'bg-gray-500'}`}>
-                    {tareaSeleccionada.categoria}
-                </span>
-                <button onClick={() => setTareaSeleccionada(null)} className="text-gray-500 hover:text-white">✕</button>
-            </div>
-
-            <h2 className={`text-2xl font-bold text-white mb-2 ${tareaSeleccionada.completada ? 'line-through opacity-50' : ''}`}>
-                {tareaSeleccionada.titulo}
-            </h2>
-            <p className="text-gray-400 mb-6">{tareaSeleccionada.descripcion || "Sin descripción"}</p>
-            
-            <div className="flex flex-col gap-3">
-                <button 
-                    onClick={() => toggleCompletada(tareaSeleccionada)}
-                    className={`w-full py-3 rounded-xl font-bold border transition ${
-                        tareaSeleccionada.completada 
-                        ? "border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10" 
-                        : "border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10"
-                    }`}
-                >
-                    {tareaSeleccionada.completada ? "Marcar como Pendiente ↺" : "Marcar Completada ✓"}
-                </button>
-                
-                <button 
-                    onClick={() => borrarTarea(tareaSeleccionada.id)}
-                    className="w-full py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 transition"
-                >
-                    Eliminar Tarea
-                </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Pasamos la función nueva */}
+      <ModalDetalle 
+        evento={eventoSeleccionado} 
+        onClose={() => setEventoSeleccionado(null)} 
+        onDelete={borrarItem} 
+        onComplete={completarTarea} 
+        onSaveSession={handleSaveSession} // <--- AQUI
+      />
     </div>
   );
 }
