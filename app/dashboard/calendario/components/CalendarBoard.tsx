@@ -16,8 +16,8 @@ interface Props {
     eventos: EventoCalendario[];
     view: any;
     setView: (v: any) => void;
-    date: Date; // <--- NUEVA PROP
-    onNavigate: (date: Date) => void; // <--- NUEVA PROP
+    date: Date;
+    onNavigate: (date: Date) => void;
     onEventDrop: (args: any) => void;
     onSelectSlot: (slotInfo: any) => void;
     onSelectEvent: (event: EventoCalendario) => void;
@@ -85,16 +85,17 @@ export default function CalendarBoard({ eventos, view, setView, date, onNavigate
         <div className="flex-1 bg-[#161B22] border border-white/10 rounded-2xl shadow-2xl h-full flex flex-col overflow-hidden">
             <DnDCalendar
                 localizer={localizer} 
-                events={eventos} 
-                startAccessor="start" 
-                endAccessor="end"
+                events={eventos}
+                // CORRECCIÓN AQUÍ: Usamos funciones en lugar de strings
+                startAccessor={(event: any) => new Date(event.start)}
+                endAccessor={(event: any) => new Date(event.end)}
                 style={{ height: '100%' }} 
                 views={[Views.MONTH, Views.WEEK, Views.DAY]} 
                 defaultView={Views.MONTH}
                 view={view}
                 onView={setView}
-                date={date} // <--- CONTROL DE FECHA
-                onNavigate={onNavigate} // <--- CONTROL DE NAVEGACIÓN
+                date={date}
+                onNavigate={onNavigate}
                 eventPropGetter={eventStyleGetter}
                 onSelectEvent={onSelectEvent}
                 onSelectSlot={onSelectSlot}
