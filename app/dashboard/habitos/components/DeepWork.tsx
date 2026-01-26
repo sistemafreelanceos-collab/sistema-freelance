@@ -7,12 +7,13 @@ interface Props {
   userId: string;
   proyectos: any[];
   onUpdateXP: (puntos: number) => void;
+  onFocusMode: (modo: boolean) => void; // <--- 1. AGREGADO AQUÍ
 }
 
-// URL del sonido (Puedes cambiarlo por un archivo local en /public/sounds/gong.mp3)
+// URL del sonido
 const ZEN_SOUND_URL = "https://pixabay.com/es/music/hermosas-obras-de-teatro-please-calm-my-mind-125566/";
 
-export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
+export default function DeepWork({ userId, proyectos, onUpdateXP, onFocusMode }: Props) { // <--- 2. AGREGADO AQUÍ
   // ESTADOS DEL TIMER
   const [minutos, setMinutos] = useState(90);
   const [segundos, setSegundos] = useState(0);
@@ -62,7 +63,7 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
   // --- AUDIO ---
   const reproducirSonido = () => {
     if (audioRef.current) {
-        audioRef.current.volume = 0.5; // Volumen al 50%
+        audioRef.current.volume = 0.5;
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(e => console.log("Audio play error:", e));
     }
@@ -70,7 +71,8 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
 
   // --- INICIAR FLUJO ---
   const iniciarProceso = () => {
-      reproducirSonido(); // <--- SONIDO AQUÍ
+      onFocusMode(true); // <--- 3. ACTIVAR MODO ENFOQUE (Oculta el resto de la app)
+      reproducirSonido();
       setFase('respiracion');
       ejecutarRespiracion();
   };
@@ -113,15 +115,22 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
               energia_final: energiaFinal
           });
           
-          onUpdateXP(50); // +50 XP
+          onUpdateXP(50);
           alert(`¡Sesión Guardada! +50 XP ⚡`);
       }
       
       // Reset
+      onFocusMode(false); // <--- 4. DESACTIVAR MODO ENFOQUE (Vuelve la app normal)
       setFase('config');
       setMinutos(90); setSegundos(0);
       setLogroTexto("");
   };
+
+  const cancelarSesion = () => { // <--- Nuevo helper por seguridad
+      setActivo(false);
+      onFocusMode(false);
+      setFase('config');
+  }
 
   // --- CARGAR HISTORIAL ---
   const verHistorial = async () => {
@@ -130,10 +139,7 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
       
       const { data } = await supabase
           .from("sesiones_focus")
-          .select(`
-            *,
-            proyectos ( nombre )
-          `)
+          .select(`*, proyectos ( nombre )`)
           .eq("owner_id", userId)
           .order("fecha", { ascending: false })
           .limit(20);
@@ -142,8 +148,6 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
       setCargandoHistorial(false);
   };
 
-  // --- ELEMENTO DE AUDIO OCULTO ---
-  // Nota: crossOrigin permite reproducir desde dominios externos sin problemas de CORS a veces
   const AudioElement = () => (
     <audio ref={audioRef} src={ZEN_SOUND_URL} crossOrigin="anonymous" preload="auto" />
   );
@@ -152,7 +156,7 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
   // RENDERIZADO POR FASES
   // =======================================================
 
-  // 1. FASE CONFIGURACIÓN (HOME DEL WIDGET)
+  // 1. FASE CONFIGURACIÓN
   if (fase === 'config') return (
       <div className="bg-[#161B22] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
           <AudioElement />
@@ -182,12 +186,6 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
               <button onClick={iniciarProceso} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition flex justify-center gap-2 items-center group">
                   <PlayIcon className="w-5 h-5 group-hover:scale-110 transition"/> INICIAR SESIÓN
               </button>
-
-              <div className="text-center">
-                <span className="text-[10px] text-gray-500 flex items-center justify-center gap-1">
-                    <MusicalNoteIcon className="w-3 h-3"/> Sonido Zen activado al iniciar
-                </span>
-              </div>
           </div>
       </div>
   );
@@ -199,37 +197,21 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
             <button onClick={() => setFase('config')} className="p-1 hover:bg-white/10 rounded-full"><ArrowLeftIcon className="w-4 h-4 text-white"/></button>
             <h3 className="text-lg font-bold text-white">Últimas Sesiones</h3>
         </div>
-
         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
-            {cargandoHistorial ? (
-                <p className="text-center text-gray-500 text-xs mt-10">Cargando bitácora...</p>
-            ) : historial.length === 0 ? (
-                <p className="text-center text-gray-500 text-xs mt-10">No hay sesiones registradas aún.</p>
-            ) : (
-                historial.map((sesion) => (
-                    <div key={sesion.id} className="bg-white/5 p-3 rounded-xl border border-white/5">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs font-bold text-emerald-400">{new Date(sesion.fecha).toLocaleDateString()}</span>
-                            <span className="text-xs font-mono text-gray-400">{sesion.duracion_minutos} min</span>
-                        </div>
-                        <p className="text-sm text-white font-medium mb-1">{sesion.logros || "Sin notas"}</p>
-                        {sesion.proyectos && (
-                            <span className="text-[10px] bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded inline-block">
-                                📂 {sesion.proyectos.nombre}
-                            </span>
-                        )}
-                        <div className="flex gap-2 mt-2 text-[10px] text-gray-500">
-                             <span>⚡ Inicio: {sesion.energia_inicial}/10</span>
-                             <span>🏁 Fin: {sesion.energia_final}/10</span>
-                        </div>
+            {cargandoHistorial ? <p className="text-center text-gray-500 text-xs mt-10">Cargando...</p> : historial.map((sesion) => (
+                <div key={sesion.id} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                    <div className="flex justify-between items-start mb-1">
+                        <span className="text-xs font-bold text-emerald-400">{new Date(sesion.fecha).toLocaleDateString()}</span>
+                        <span className="text-xs font-mono text-gray-400">{sesion.duracion_minutos} min</span>
                     </div>
-                ))
-            )}
+                    <p className="text-sm text-white font-medium mb-1">{sesion.logros || "Sin notas"}</p>
+                </div>
+            ))}
         </div>
     </div>
   );
 
-  // 3. FASE RESPIRACIÓN (FULL SCREEN)
+  // 3. FASE RESPIRACIÓN
   if (fase === 'respiracion') return (
       <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
           <AudioElement />
@@ -242,28 +224,17 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
       </div>
   );
 
-  // 4. FASE FOCUS (WIDGET COMPACTO)
+  // 4. FASE FOCUS
   if (fase === 'focus') return (
       <div className="bg-[#161B22] border border-blue-500/30 rounded-2xl p-6 shadow-[0_0_20px_rgba(59,130,246,0.1)]">
           <div className="flex justify-between items-start mb-4">
-               <div>
-                  <h3 className="text-xl font-bold text-white">Modo Enfoque</h3>
-                  <p className="text-xs text-blue-400 animate-pulse">● Grabando sesión...</p>
-               </div>
+               <div><h3 className="text-xl font-bold text-white">Modo Enfoque</h3><p className="text-xs text-blue-400 animate-pulse">● Grabando sesión...</p></div>
                {proyectoId && <span className="text-[10px] bg-blue-900/50 text-blue-200 px-2 py-1 rounded">Activo</span>}
           </div>
-          
-          <div className="text-6xl font-mono font-bold text-white text-center my-6 tabular-nums">
-              {String(minutos).padStart(2, '0')}:{String(segundos).padStart(2, '0')}
-          </div>
-
+          <div className="text-6xl font-mono font-bold text-white text-center my-6 tabular-nums">{String(minutos).padStart(2, '0')}:{String(segundos).padStart(2, '0')}</div>
           <div className="flex gap-3">
-              <button onClick={pausarTimer} className={`flex-1 py-3 rounded-xl font-bold transition flex justify-center ${activo ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30" : "bg-emerald-600 text-white hover:bg-emerald-500"}`}>
-                  {activo ? <PauseIcon className="w-6 h-6"/> : <PlayIcon className="w-6 h-6"/>}
-              </button>
-              <button onClick={finalizarSesion} className="px-4 bg-red-500/20 text-red-500 rounded-xl hover:bg-red-500/30 transition">
-                  <StopIcon className="w-6 h-6"/>
-              </button>
+              <button onClick={pausarTimer} className={`flex-1 py-3 rounded-xl font-bold transition flex justify-center ${activo ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30" : "bg-emerald-600 text-white hover:bg-emerald-500"}`}>{activo ? <PauseIcon className="w-6 h-6"/> : <PlayIcon className="w-6 h-6"/>}</button>
+              <button onClick={finalizarSesion} className="px-4 bg-red-500/20 text-red-500 rounded-xl hover:bg-red-500/30 transition"><StopIcon className="w-6 h-6"/></button>
           </div>
       </div>
   );
@@ -272,21 +243,13 @@ export default function DeepWork({ userId, proyectos, onUpdateXP }: Props) {
   return (
       <div className="bg-[#1C2128] border border-emerald-500/50 p-6 rounded-2xl animate-in zoom-in">
           <h3 className="text-xl font-bold text-white mb-2">¡Misión Cumplida! 🚩</h3>
-          
           <div className="space-y-4 mt-4">
-              <div>
-                  <label className="text-xs text-gray-400 block mb-1">¿Qué lograste?</label>
-                  <textarea value={logroTexto} onChange={e => setLogroTexto(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white h-20 outline-none focus:border-emerald-500" placeholder="Ej: Terminé la API..." autoFocus />
+              <div><label className="text-xs text-gray-400 block mb-1">¿Qué lograste?</label><textarea value={logroTexto} onChange={e => setLogroTexto(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white h-20 outline-none focus:border-emerald-500" placeholder="Ej: Terminé la API..." autoFocus /></div>
+              <div><label className="text-xs text-gray-400 block mb-1">Energía Final: {energiaFinal}/10</label><input type="range" min="1" max="10" value={energiaFinal} onChange={e => setEnergiaFinal(Number(e.target.value))} className="w-full accent-emerald-500 cursor-pointer"/></div>
+              <div className="flex gap-2">
+                <button onClick={guardarSesion} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg">Guardar</button>
+                <button onClick={cancelarSesion} className="px-4 text-gray-500 hover:text-white text-xs">Descartar</button>
               </div>
-
-              <div>
-                  <label className="text-xs text-gray-400 block mb-1">Energía Final: {energiaFinal}/10</label>
-                  <input type="range" min="1" max="10" value={energiaFinal} onChange={e => setEnergiaFinal(Number(e.target.value))} className="w-full accent-emerald-500 cursor-pointer"/>
-              </div>
-
-              <button onClick={guardarSesion} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg">
-                  Guardar y Reclamar XP
-              </button>
           </div>
       </div>
   );
