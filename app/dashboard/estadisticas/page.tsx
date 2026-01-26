@@ -129,7 +129,9 @@ export default function EstadisticasPage() {
             totalIngresosAnio += m.monto;
             if (m.proyecto_id) {
                 const proy = proyectos?.find(p => p.id === m.proyecto_id);
-                const clienteNombre = proy?.clientes?.nombre || "Sin Cliente";
+                // CORRECCIÓN AQUÍ: Usamos 'as any' para evitar el error de TypeScript
+                const clienteData = proy?.clientes as any;
+                const clienteNombre = clienteData?.nombre || "Sin Cliente";
                 ingresosPorCliente[clienteNombre] = (ingresosPorCliente[clienteNombre] || 0) + m.monto;
             } else {
                 ingresosPorCliente["Varios"] = (ingresosPorCliente["Varios"] || 0) + m.monto;
@@ -159,8 +161,10 @@ export default function EstadisticasPage() {
     const tablaValorHora = proyectos?.map(p => {
         const horas = horasPorProyecto[p.id] || 0;
         const ingresos = ingresosPorProyecto[p.id] || 0;
+        // CORRECCIÓN AQUÍ TAMBIÉN
+        const clienteData = p.clientes as any;
         return {
-            nombre: p.clientes?.nombre ? `${p.clientes.nombre} - Proyecto` : "Proyecto",
+            nombre: clienteData?.nombre ? `${clienteData.nombre} - Proyecto` : "Proyecto",
             horas: horas,
             ingresos: ingresos,
             tasa: horas > 0 ? ingresos / horas : 0
