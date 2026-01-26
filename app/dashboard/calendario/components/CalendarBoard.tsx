@@ -16,6 +16,8 @@ interface Props {
     eventos: EventoCalendario[];
     view: any;
     setView: (v: any) => void;
+    date: Date; // <--- NUEVA PROP
+    onNavigate: (date: Date) => void; // <--- NUEVA PROP
     onEventDrop: (args: any) => void;
     onSelectSlot: (slotInfo: any) => void;
     onSelectEvent: (event: EventoCalendario) => void;
@@ -51,7 +53,7 @@ const CustomToolbar = (toolbar: any) => {
     );
 };
 
-export default function CalendarBoard({ eventos, view, setView, onEventDrop, onSelectSlot, onSelectEvent }: Props) {
+export default function CalendarBoard({ eventos, view, setView, date, onNavigate, onEventDrop, onSelectSlot, onSelectEvent }: Props) {
     
     const eventStyleGetter = (event: EventoCalendario) => {
         const isProject = event.resource?.tipo_evento === 'proyecto';
@@ -63,7 +65,7 @@ export default function CalendarBoard({ eventos, view, setView, onEventDrop, onS
             opacity: isCompleted ? 0.6 : 1,
             borderRadius: "4px", 
             border: "none",
-            borderLeft: `4px solid ${isCompleted ? '#52525B' : 'rgba(0,0,0,0.2)'}`, // Borde lateral estilo Google
+            borderLeft: `4px solid ${isCompleted ? '#52525B' : 'rgba(0,0,0,0.2)'}`,
             color: "white",
             fontSize: "12px",
             fontWeight: "500",
@@ -91,64 +93,35 @@ export default function CalendarBoard({ eventos, view, setView, onEventDrop, onS
                 defaultView={Views.MONTH}
                 view={view}
                 onView={setView}
+                date={date} // <--- CONTROL DE FECHA
+                onNavigate={onNavigate} // <--- CONTROL DE NAVEGACIÓN
                 eventPropGetter={eventStyleGetter}
                 onSelectEvent={onSelectEvent}
                 onSelectSlot={onSelectSlot}
                 selectable
                 onEventDrop={onEventDrop} 
                 resizable
-                step={30} // Bloques de 30 min (más preciso)
-                timeslots={2} // 2 slots por hora
-                scrollToTime={new Date(1970, 1, 1, 8, 0, 0)} // Empezar scroll a las 8 AM
+                step={30} 
+                timeslots={2} 
+                scrollToTime={new Date(1970, 1, 1, 8, 0, 0)}
                 components={{ toolbar: CustomToolbar }}
                 messages={{ next: "Sig", previous: "Ant", today: "Hoy", month: "Mes", week: "Semana", day: "Día", date: "Fecha", time: "Hora", event: "Evento" }}
             />
             
-            {/* ESTILOS AVANZADOS TIPO GOOGLE CALENDAR DARK */}
             <style jsx global>{`
                 .rbc-calendar { font-family: 'Inter', sans-serif; color: #9CA3AF; }
-                
-                /* Header limpio */
-                .rbc-header { 
-                    padding: 12px 0; 
-                    font-size: 11px; 
-                    font-weight: 700; 
-                    text-transform: uppercase; 
-                    color: #9CA3AF; 
-                    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
-                }
-                
-                /* Rejilla Día/Semana */
+                .rbc-header { padding: 12px 0; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #9CA3AF; border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
                 .rbc-time-view { border: none; }
                 .rbc-timeslot-group { border-bottom: 1px solid rgba(255,255,255,0.03) !important; }
                 .rbc-day-slot .rbc-time-slot { border-top: none; }
                 .rbc-time-header-content { border-left: 1px solid rgba(255,255,255,0.05) !important; }
                 .rbc-day-bg { border-left: 1px solid rgba(255,255,255,0.05) !important; }
-                
-                /* Indicador de Hora Actual (Línea Roja) */
                 .rbc-current-time-indicator { background-color: #EF4444 !important; height: 2px !important; }
-
-                /* Celdas del Mes */
                 .rbc-month-view { border: none; }
                 .rbc-day-bg + .rbc-day-bg { border-left: 1px solid rgba(255,255,255,0.05); }
                 .rbc-month-row { border-bottom: 1px solid rgba(255,255,255,0.05); }
-                
-                /* Hoy */
                 .rbc-today { background-color: rgba(79, 70, 229, 0.05) !important; }
-                
-                /* Fecha seleccionada */
-                .rbc-date-cell { padding: 8px; font-size: 13px; font-weight: 600; opacity: 0.8; transition: all 0.2s; }
-                .rbc-now .rbc-button-link { 
-                    color: #fff; 
-                    background: #4F46E5; 
-                    width: 24px; height: 24px; 
-                    display: inline-flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    border-radius: 50%; 
-                }
-
-                /* Animación titilar */
+                .rbc-date-cell { padding: 8px; font-size: 13px; font-weight: 600; opacity: 0.8; }
                 @keyframes pulse-yellow { 0% { opacity: 1; border-color: #EAB308; } 50% { opacity: 0.7; border-color: transparent; } 100% { opacity: 1; border-color: #EAB308; } }
             `}</style>
         </div>
