@@ -1,45 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabaseClient";
 import { EventoCalendario, PostIt, TipoNota } from "../../types";
 import { toast } from "sonner";
 import moment from "moment";
 
 export function useCalendario() {
-    const [loading, setLoading] = useState(true);
-    const [localEvents, setLocalEvents] = useState<EventoCalendario[]>([]);
-    const [googleEvents, setGoogleEvents] = useState<EventoCalendario[]>([]);
-    const [postIts, setPostIts] = useState<PostIt[]>([]);
-    const [proyectosRaw, setProyectosRaw] = useState<any[]>([]);
-    const [proyectosList, setProyectosList] = useState<any[]>([]);
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        cargarDatos();
-        syncGoogle(true);
-    }, []);
+    // 1. QUERY: Eventos Local + DB
+    const { data, isLoading } = useQuery({
+        queryKey: ['calendario'],
+        queryFn: async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("No session");
+            const uid = session.user.id;
 
-    // Combinar eventos locales y de Google
-    const eventosDB = [...localEvents, ...googleEvents];
-
-    const cargarDatos = async () => {
-        setLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const uid = session.user.id;
-
-        try {
             const [tareas, gastos, proyectos, notas] = await Promise.all([
                 supabase.from("tareas").select("*, proyectos(nombre)").eq("owner_id", uid),
                 supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
                 supabase.from("proyectos").select("id, nombre, monto, moneda, fecha_inicio, fecha_fin, estado, cliente_id, clientes(nombre, proximo_pago, monto, moneda, frecuencia_pago), pagos_cliente(monto), tiempo_acumulado").eq("owner_id", uid),
                 supabase.from("notas_calendario").select("*").eq("owner_id", uid)
             ]);
-
-            setProyectosRaw(proyectos.data || []);
-            setProyectosList(proyectos.data?.map((p: any) => ({
-                id: p.id,
-                nombre: p.clientes?.nombre ? `${p.nombre} - ${p.clientes.nombre}` : p.nombre,
-                cliente: p.clientes // Pasamos info completa
-            })) || []);
 
             const lista: EventoCalendario[] = [];
 
@@ -109,158 +91,173 @@ export function useCalendario() {
                 }
             });
 
-            setLocalEvents(lista);
-            setPostIts(notas.data?.map((n: any) => ({ id: n.id, texto: n.texto, fecha: n.fecha, color: n.color || 'amarillo', rotacion: n.rotacion || (Math.random() * 6 - 3) })) || []);
+            const postIts = notas.data?.map((n: any) => ({
+                id: n.id, texto: n.texto, fecha: n.fecha, color: n.color || 'amarillo', rotacion: n.rotacion || (Math.random() * 6 - 3)
+            })) || [];
 
-        } catch (error) {
-            console.error("Error loading calendar data:", error);
-            toast.error("Error cargando calendario");
-        } finally {
-            setLoading(false);
+            const proyectosList = proyectos.data?.map((p: any) => ({
+                id: p.id,
+                nombre: p.clientes?.nombre ? `${p.nombre} - ${p.clientes.nombre}` : p.nombre,
+                cliente: p.clientes
+            })) || [];
+
+            return {
+                localEvents: lista,
+                postIts,
+                proyectosRaw: proyectos.data || [],
+                proyectosList,
+            };
         }
-    };
+    });
 
-    const syncGoogle = async (silent = false) => {
-        const { data: { session } } = await supabase.auth.getSession();
+    // 2. QUERY GOOGLE (Separada para no bloquear la carga local)
+    const { data: googleData } = useQuery({
+        queryKey: ['calendario-google'],
+        queryFn: async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            // @ts-ignore
+            let token = session?.provider_token;
+            if (!token) return [];
 
-        // @ts-ignore: provider_token exists in session but typing may vary
-        let token = session?.provider_token;
-
-        if (!token) {
-            if (!silent) {
-                toast.info("Redirigiendo a Google para dar permisos...");
-                await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: {
-                        scopes: 'https://www.googleapis.com/auth/calendar.events.readonly',
-                        redirectTo: window.location.origin + '/dashboard/calendario'
-                    }
+            try {
+                const res = await fetch('/api/calendar', {
+                    method: 'POST',
+                    body: JSON.stringify({ provider_token: token })
                 });
+                if (!res.ok) return [];
+                return await res.json();
+            } catch {
+                return [];
             }
-            return;
-        }
+        },
+        staleTime: 1000 * 60 * 10 // 10 minutos caché Google
+    });
 
-        const toastId = silent ? null : toast.loading("Sincronizando con Google Calendar...");
+    const eventosDB = [...(data?.localEvents || []), ...(googleData || [])];
 
-        try {
-            const res = await fetch('/api/calendar', {
-                method: 'POST',
-                body: JSON.stringify({ provider_token: token })
-            });
+    // 3. MUTACIONES
+    const guardarTareaMutation = useMutation({
+        mutationFn: async ({ formulario, recurrente }: { formulario: any, recurrente: boolean }) => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const insertData: any = { owner_id: session?.user.id, titulo: formulario.titulo, descripcion: formulario.descripcion, fecha: formulario.fecha, hora: formulario.hora, categoria: formulario.categoria, proyecto_id: formulario.proyectoId || null, completada: false };
 
-            if (!res.ok) throw new Error("Error en API Calendar");
-
-            const gEvents = await res.json();
-            setGoogleEvents(gEvents);
-            if (toastId) toast.success("¡Eventos de Google importados!", { id: toastId });
-        } catch (error) {
-            console.error(error);
-            if (toastId) toast.error("Error sincronizando. Intenta reconectar.", { id: toastId });
-        }
-    };
-
-    const guardarTarea = async (formulario: any, recurrente: boolean) => {
-        const { data: { session } } = await supabase.auth.getSession();
-        const insertData: any = { owner_id: session?.user.id, titulo: formulario.titulo, descripcion: formulario.descripcion, fecha: formulario.fecha, hora: formulario.hora, categoria: formulario.categoria, proyecto_id: formulario.proyectoId || null, completada: false };
-
-        if (recurrente) {
-            const promesas = [];
-            for (let i = 0; i < 6; i++) {
-                const fOriginal = new Date(formulario.fecha);
-                const nuevaFecha = new Date(new Date(fOriginal).setMonth(fOriginal.getMonth() + i)).toISOString().split('T')[0];
-                promesas.push(supabase.from("tareas").insert({ ...insertData, fecha: nuevaFecha }));
+            if (recurrente) {
+                const promesas = [];
+                for (let i = 0; i < 6; i++) {
+                    const fOriginal = new Date(formulario.fecha);
+                    const nuevaFecha = new Date(new Date(fOriginal).setMonth(fOriginal.getMonth() + i)).toISOString().split('T')[0];
+                    promesas.push(supabase.from("tareas").insert({ ...insertData, fecha: nuevaFecha }));
+                }
+                await Promise.all(promesas);
+            } else {
+                await supabase.from("tareas").insert(insertData);
             }
-            await Promise.all(promesas);
-        } else {
-            await supabase.from("tareas").insert(insertData);
+        },
+        onSuccess: () => {
+            toast.success("Tarea agendada");
+            queryClient.invalidateQueries({ queryKey: ['calendario'] });
         }
-        toast.success("Tarea agendada");
-        await cargarDatos();
-    };
+    });
 
-    const editarTarea = async (id: string, formulario: any) => {
-        const updateData: any = {
-            titulo: formulario.titulo,
-            descripcion: formulario.descripcion,
-            fecha: formulario.fecha,
-            hora: formulario.hora,
-            categoria: formulario.categoria,
-            proyecto_id: formulario.proyectoId || null
-        };
+    const editarTareaMutation = useMutation({
+        mutationFn: async ({ id, formulario }: { id: string, formulario: any }) => {
+            const updateData: any = { titulo: formulario.titulo, descripcion: formulario.descripcion, fecha: formulario.fecha, hora: formulario.hora, categoria: formulario.categoria, proyecto_id: formulario.proyectoId || null };
+            await supabase.from("tareas").update(updateData).eq("id", id);
+        },
+        onSuccess: () => {
+            toast.success("Tarea actualizada");
+            queryClient.invalidateQueries({ queryKey: ['calendario'] });
+        },
+        onError: () => toast.error("Error al actualizar")
+    });
 
-        const { error } = await supabase.from("tareas").update(updateData).eq("id", id);
-
-        if (error) {
-            console.error(error);
-            toast.error("Error al actualizar");
-            return;
+    const guardarNotaMutation = useMutation({
+        mutationFn: async ({ texto, color }: { texto: string, color: TipoNota }) => {
+            const { data: { session } } = await supabase.auth.getSession();
+            await supabase.from("notas_calendario").insert({ owner_id: session?.user.id, fecha: new Date().toISOString(), texto, color });
+        },
+        onSuccess: () => {
+            toast.success("Nota creada");
+            queryClient.invalidateQueries({ queryKey: ['calendario'] });
         }
+    });
 
-        toast.success("Tarea actualizada");
-        await cargarDatos();
-    };
-
-    const guardarNota = async (texto: string, color: TipoNota) => {
-        const { data: { session } } = await supabase.auth.getSession();
-        await supabase.from("notas_calendario").insert({ owner_id: session?.user.id, fecha: new Date().toISOString(), texto, color });
-        toast.success("Nota creada");
-        await cargarDatos();
-    };
-
-    const editarNota = async (id: string, texto: string, color: TipoNota) => {
-        const { error } = await supabase.from("notas_calendario").update({ texto, color }).eq("id", id);
-        if (error) {
-            toast.error("Error al actualizar nota");
-            return;
+    const editarNotaMutation = useMutation({
+        mutationFn: async ({ id, texto, color }: { id: string, texto: string, color: TipoNota }) => {
+            await supabase.from("notas_calendario").update({ texto, color }).eq("id", id);
+        },
+        onSuccess: () => {
+            toast.success("Nota actualizada");
+            queryClient.invalidateQueries({ queryKey: ['calendario'] });
         }
-        toast.success("Nota actualizada");
-        await cargarDatos();
+    });
+
+    const borrarItem = (id: string, tabla: string) => {
+        toast.error("¿Eliminar este elemento?", {
+            action: {
+                label: "Eliminar",
+                onClick: async () => {
+                    await supabase.from(tabla).delete().eq("id", id);
+                    queryClient.invalidateQueries({ queryKey: ['calendario'] });
+                    toast.success("Elemento eliminado");
+                }
+            },
+            cancel: { label: "Cancelar", onClick: () => { } },
+        });
     };
 
-    const borrarItem = async (id: string, tabla: string) => {
-        if (!confirm("¿Eliminar?")) return;
-        await supabase.from(tabla).delete().eq("id", id);
-        await cargarDatos();
-        toast.success("Elemento eliminado");
-    };
+    const completarTareaMutation = useMutation({
+        mutationFn: async ({ id, estadoActual }: { id: string, estadoActual: boolean }) => {
+            await supabase.from("tareas").update({ completada: !estadoActual }).eq("id", id);
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendario'] })
+    });
 
-    const completarTarea = async (id: string, estadoActual: boolean | undefined) => {
-        await supabase.from("tareas").update({ completada: !estadoActual }).eq("id", id);
-        await cargarDatos();
-    };
+    const updateTaskDateMutation = useMutation({
+        mutationFn: async ({ id, start }: { id: string, start: Date }) => {
+            const fechaStr = moment(start).format('YYYY-MM-DD');
+            const horaStr = moment(start).format('HH:mm');
+            await supabase.from("tareas").update({ fecha: fechaStr, hora: horaStr }).eq("id", id);
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendario'] })
+    });
 
-    const updateTaskDate = async (id: string, start: Date) => {
-        const fechaStr = moment(start).format('YYYY-MM-DD');
-        const horaStr = moment(start).format('HH:mm');
-        await supabase.from("tareas").update({ fecha: fechaStr, hora: horaStr }).eq("id", id);
-        cargarDatos();
-    };
+    const saveSessionMutation = useMutation({
+        mutationFn: async ({ seconds, completed, eventoSeleccionado }: { seconds: number, completed: boolean, eventoSeleccionado: EventoCalendario }) => {
+            if (completed) await supabase.from("tareas").update({ completada: true }).eq("id", eventoSeleccionado.id);
+            if (eventoSeleccionado.resource?.projectId) {
+                const proyectoId = eventoSeleccionado.resource.projectId;
+                // Fetch first, simplistic approach, could be better with RPC but okay for now
+                const { data: proy } = await supabase.from("proyectos").select("tiempo_acumulado").eq("id", proyectoId).single();
+                await supabase.from("proyectos").update({ tiempo_acumulado: Number(proy?.tiempo_acumulado || 0) + seconds }).eq("id", proyectoId);
+            }
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendario'] })
+    });
 
-    const saveSession = async (seconds: number, completed: boolean, eventoSeleccionado: EventoCalendario) => {
-        if (completed) await supabase.from("tareas").update({ completada: true }).eq("id", eventoSeleccionado.id);
-        if (eventoSeleccionado.resource?.projectId) {
-            const proyectoId = eventoSeleccionado.resource.projectId;
-            const { data: proy } = await supabase.from("proyectos").select("tiempo_acumulado").eq("id", proyectoId).single();
-            await supabase.from("proyectos").update({ tiempo_acumulado: Number(proy?.tiempo_acumulado || 0) + seconds }).eq("id", proyectoId);
-        }
-        await cargarDatos();
+    // Sync explícito (botón)
+    const syncGoogle = async (silent = false) => {
+        // Simplemente invalidamos para que useQuery vuelva a fetchear, 
+        // pero como useQuery depende del token y fetcher, aquí podemos forzar refetch
+        queryClient.invalidateQueries({ queryKey: ['calendario-google'] });
+        if (!silent) toast.success("Sincronizando...");
     };
 
     return {
-        loading,
+        loading: isLoading,
         eventosDB,
-        postIts,
-        proyectosRaw,
-        proyectosList,
-        cargarDatos,
-        guardarTarea,
-        editarTarea,
-        guardarNota,
-        editarNota,
+        postIts: data?.postIts || [],
+        proyectosRaw: data?.proyectosRaw || [],
+        proyectosList: data?.proyectosList || [],
+        cargarDatos: () => queryClient.invalidateQueries({ queryKey: ['calendario'] }),
+        guardarTarea: (formulario: any, recurrente: boolean) => guardarTareaMutation.mutateAsync({ formulario, recurrente }),
+        editarTarea: (id: string, formulario: any) => editarTareaMutation.mutateAsync({ id, formulario }),
+        guardarNota: (texto: string, color: TipoNota) => guardarNotaMutation.mutateAsync({ texto, color }),
+        editarNota: (id: string, texto: string, color: TipoNota) => editarNotaMutation.mutateAsync({ id, texto, color }),
         borrarItem,
-        completarTarea,
-        updateTaskDate,
-        saveSession,
+        completarTarea: (id: string, estadoActual: boolean | undefined) => completarTareaMutation.mutateAsync({ id, estadoActual: !!estadoActual }),
+        updateTaskDate: (id: string, start: Date) => updateTaskDateMutation.mutateAsync({ id, start }),
+        saveSession: (seconds: number, completed: boolean, eventoSeleccionado: EventoCalendario) => saveSessionMutation.mutateAsync({ seconds, completed, eventoSeleccionado }),
         syncGoogle
     };
 }

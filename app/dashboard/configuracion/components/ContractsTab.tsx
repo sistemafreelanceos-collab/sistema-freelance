@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabaseClient";
 import { PlantillaContrato, Clausula } from "../../../../types";
+import { toast } from "sonner";
 
 interface Props {
   userId: string;
@@ -41,8 +42,18 @@ export default function ContractsTab({ userId }: Props) {
     setEditP(null); setFormP({ titulo: "", contenido: "" }); cargarDatos();
   };
 
-  const borrarPlantilla = async (id: string) => {
-    if (confirm("¿Borrar?")) { await supabase.from("plantillas_contratos").delete().eq("id", id); cargarDatos(); }
+  const borrarPlantilla = (id: string) => {
+    toast.error("¿Borrar plantilla?", {
+      action: {
+        label: "Borrar",
+        onClick: async () => {
+          await supabase.from("plantillas_contratos").delete().eq("id", id);
+          cargarDatos();
+          toast.success("Plantilla eliminada");
+        }
+      },
+      cancel: { label: "Cancelar", onClick: () => { } }
+    });
   };
 
   // --- HANDLERS CLÁUSULAS ---
@@ -54,10 +65,21 @@ export default function ContractsTab({ userId }: Props) {
       await supabase.from("clausulas_contractuales").insert({ owner_id: userId, ...formC });
     }
     setEditC(null); setFormC({ titulo: "", contenido: "" }); cargarDatos();
+    toast.success("Cláusula guardada");
   };
 
-  const borrarClausula = async (id: string) => {
-    if (confirm("¿Borrar?")) { await supabase.from("clausulas_contractuales").delete().eq("id", id); cargarDatos(); }
+  const borrarClausula = (id: string) => {
+    toast.error("¿Borrar cláusula?", {
+      action: {
+        label: "Borrar",
+        onClick: async () => {
+          await supabase.from("clausulas_contractuales").delete().eq("id", id);
+          cargarDatos();
+          toast.success("Cláusula eliminada");
+        }
+      },
+      cancel: { label: "Cancelar", onClick: () => { } }
+    });
   };
 
   return (

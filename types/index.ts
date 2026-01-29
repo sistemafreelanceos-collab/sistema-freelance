@@ -122,6 +122,7 @@ export type ConfigFinanzas = {
     owner_id?: string;
     porcentaje_ahorro: number;
     meta_mensual?: number;
+    meta_moneda?: string;
 };
 
 export type UserXP = {
@@ -237,4 +238,14 @@ export const POSTIT_STYLES: Record<TipoNota, string> = {
     rojo: "bg-[#FECACA] text-red-900 shadow-[4px_4px_15px_rgba(0,0,0,0.2)]",
     azul: "bg-[#BFDBFE] text-blue-900 shadow-[4px_4px_15px_rgba(0,0,0,0.2)]",
     verde: "bg-[#BBF7D0] text-green-900 shadow-[4px_4px_15px_rgba(0,0,0,0.2)]",
+};
+export type Notification = {
+    id: string;
+    created_at: string;
+    user_id: string;
+    title: string;
+    message: string | null;
+    type: 'info' | 'success' | 'warning' | 'error';
+    read: boolean;
+    link: string | null;
 };

@@ -85,7 +85,7 @@ export default function SuscripcionPage() {
       .eq("id", profile.id);
 
     if (error) {
-      alert(error.message);
+      toast.error(error.message);
       setAccionando(false);
       return;
     }
@@ -113,7 +113,7 @@ export default function SuscripcionPage() {
       .eq("id", profile.id);
 
     if (error) {
-      alert(error.message);
+      toast.error(error.message);
       setAccionando(false);
       return;
     }

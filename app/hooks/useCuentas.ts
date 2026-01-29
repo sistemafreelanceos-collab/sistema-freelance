@@ -77,16 +77,23 @@ export function useCuentas() {
         }
     };
 
-    const eliminarCuenta = async (id: string) => {
-        if (!confirm("¿Borrar cuenta? Se perderá el historial de saldo asociado.")) return;
-
-        const { error } = await supabase.from("cuentas").delete().eq("id", id);
-        if (error) {
-            toast.error("Error al eliminar cuenta");
-        } else {
-            await cargarCuentasYSaldo();
-            toast.success("Cuenta eliminada");
-        }
+    const eliminarCuenta = (id: string) => {
+        toast.error("¿Borrar cuenta? Se perderá el historial.", {
+            action: {
+                label: "Eliminar",
+                onClick: async () => {
+                    const { error } = await supabase.from("cuentas").delete().eq("id", id);
+                    if (error) {
+                        toast.error("Error al eliminar cuenta");
+                    } else {
+                        await cargarCuentasYSaldo();
+                        toast.success("Cuenta eliminada");
+                    }
+                }
+            },
+            cancel: { label: "Cancelar", onClick: () => { } },
+            duration: 5000,
+        });
     };
 
     const hacerPrincipal = async (id: string) => {

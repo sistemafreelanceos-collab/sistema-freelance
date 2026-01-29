@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ConfigPerfil } from "../../../../types"; // <--- IMPORTAMOS EL TIPO OFICIAL
+import { toast } from "sonner";
 
 // Eliminamos la definición local de ConfigPerfil y Moneda para usar la global o inferencia
 type Moneda = "USD" | "COP" | "EUR" | "MXN";
@@ -47,7 +48,7 @@ export default function FinanceTab({ config, setConfig }: Props) {
     const currentList = config.monedas_activas || [];
     // Solo permitir meta en una moneda activa
     if (!currentList.includes(moneda)) {
-      alert("Activa esa moneda primero para poder usarla como meta.");
+      toast.warning("Activa esa moneda primero para poder usarla como meta.");
       return;
     }
     setConfig((prev) => ({ ...prev, meta_moneda: moneda }));
@@ -74,8 +75,8 @@ export default function FinanceTab({ config, setConfig }: Props) {
                 key={m}
                 onClick={() => toggleMoneda(m)}
                 className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${active
-                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-                    : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
+                  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                  : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
                   }`}
               >
                 {m}
@@ -101,8 +102,8 @@ export default function FinanceTab({ config, setConfig }: Props) {
                 key={m}
                 onClick={() => setMetaMoneda(m)}
                 className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${selected
-                    ? "bg-blue-500/10 text-blue-200 border-blue-500/30"
-                    : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
+                  ? "bg-blue-500/10 text-blue-200 border-blue-500/30"
+                  : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
                   }`}
               >
                 {selected ? `✓ ${m}` : m}

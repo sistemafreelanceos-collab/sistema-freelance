@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabaseClient";
 import { PlantillaServicio } from "../../../../types";
+import { toast } from "sonner";
 
 interface Props {
   userId: string;
@@ -43,10 +44,18 @@ export default function ServicesTab({ userId, monedas }: Props) {
     setForm({ nombre: "", descripcion: "", precio_base: 0, moneda: "USD" });
   };
 
-  const borrar = async (id: string) => {
-    if (!confirm("¿Eliminar servicio?")) return;
-    await supabase.from("plantillas_proyectos").delete().eq("id", id);
-    setServicios(prev => prev.filter(s => s.id !== id));
+  const borrar = (id: string) => {
+    toast.error("¿Eliminar servicio?", {
+      action: {
+        label: "Eliminar",
+        onClick: async () => {
+          await supabase.from("plantillas_proyectos").delete().eq("id", id);
+          setServicios(prev => prev.filter(s => s.id !== id));
+          toast.success("Servicio eliminado");
+        }
+      },
+      cancel: { label: "Cancelar", onClick: () => { } }
+    });
   };
 
   return (
@@ -67,8 +76,8 @@ export default function ServicesTab({ userId, monedas }: Props) {
             onClick={() => { setEditId(s.id); setForm(s); }}
             // AQUÍ CAMBIAMOS EL FONDO NEGRO POR TRANSPARENTE 👇
             className={`p-4 rounded-xl cursor-pointer border transition ${editId === s.id
-                ? "bg-white/10 border-emerald-500 shadow-lg shadow-emerald-500/10"
-                : "bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10"
+              ? "bg-white/10 border-emerald-500 shadow-lg shadow-emerald-500/10"
+              : "bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/10"
               }`}
           >
             <div className="flex justify-between items-center">

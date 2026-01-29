@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "../../../../lib/supabaseClient";
 import { GastoFijo, Movimiento } from "../../../../types";
 import { CheckCircleIcon, ClockIcon, PencilIcon, TrashIcon, CalendarDaysIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { toast } from "sonner";
 
 interface Props {
     gastosFijos: GastoFijo[];
@@ -84,27 +85,38 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
     const pagarCuota = async (e: any, gasto: GastoFijo) => {
         e.stopPropagation();
         const cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
-        if (!cuentaId) return alert("❌ No tienes cuentas registradas.");
-        if (!confirm(`¿Pagar ${gasto.nombre} por $${gasto.monto}?`)) return;
+        if (!cuentaId) return toast.error("❌ No tienes cuentas registradas.");
 
-        setPagandoId(gasto.id);
-        const { error: errMov } = await supabase.from("movimientos").insert({
-            owner_id: (await supabase.auth.getUser()).data.user?.id,
-            tipo: "egreso",
-            monto: gasto.monto,
-            moneda: gasto.moneda || "USD",
-            referencia: `Pago Mensual: ${gasto.nombre}`,
-            categoria: gasto.categoria,
-            fecha: new Date().toISOString().slice(0, 10),
-            cuenta_id: cuentaId,
-            fuente: 'recurrente'
+        toast("¿Realizar pago?", {
+            description: `Pagar ${gasto.nombre} por $${gasto.monto}`,
+            action: {
+                label: "Pagar Ahora",
+                onClick: async () => {
+                    setPagandoId(gasto.id);
+                    const { error: errMov } = await supabase.from("movimientos").insert({
+                        owner_id: (await supabase.auth.getUser()).data.user?.id,
+                        tipo: "egreso",
+                        monto: gasto.monto,
+                        moneda: gasto.moneda || "USD",
+                        referencia: `Pago Mensual: ${gasto.nombre}`,
+                        categoria: gasto.categoria,
+                        fecha: new Date().toISOString().slice(0, 10),
+                        cuenta_id: cuentaId,
+                        fuente: 'recurrente'
+                    });
+
+                    if (!errMov) {
+                        await supabase.from("gastos_fijos").update({ ultimo_pago: new Date().toISOString() }).eq("id", gasto.id);
+                        onRecargar();
+                        toast.success("Pago registrado correctamente");
+                    } else {
+                        toast.error("Error al registrar el pago");
+                    }
+                    setPagandoId(null);
+                }
+            },
+            cancel: { label: "Cancelar", onClick: () => { } },
         });
-
-        if (!errMov) {
-            await supabase.from("gastos_fijos").update({ ultimo_pago: new Date().toISOString() }).eq("id", gasto.id);
-            onRecargar();
-        }
-        setPagandoId(null);
     };
 
     return (

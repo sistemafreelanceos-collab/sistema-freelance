@@ -23,7 +23,7 @@ interface Props {
 
 import CFOVirtual from "./CFOVirtual"; // Importar componente
 
-export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config, presupuestos }: Props & { config: ConfigFinanzas, presupuestos: any[] }) {
+export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config, presupuestos }: Props & { config: ConfigFinanzas & { meta_moneda?: string }, presupuestos: any[] }) {
 
     const formatDate = (fechaString: string) => {
         if (!fechaString) return "—";
@@ -88,7 +88,7 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                 <div className="bg-[#161B22] border border-emerald-500/30 p-6 rounded-2xl">
                     <p className="text-xs text-emerald-400 uppercase font-bold mb-1">Ingreso</p>
                     <p className="text-3xl font-mono text-white font-bold tracking-tight flex items-end gap-2">
-                        $ {resumen.disponible.toLocaleString()} <span className="text-sm text-gray-500 mb-1">USD</span>
+                        $ {resumen.disponible.toLocaleString()} <span className="text-sm text-gray-500 mb-1">{config.meta_moneda || "USD"}</span>
                     </p>
                 </div>
 
@@ -96,7 +96,7 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                 <div className="bg-[#161B22] border border-red-500/30 p-6 rounded-2xl">
                     <p className="text-xs text-red-400 uppercase font-bold mb-1">Gastado este Mes</p>
                     <p className="text-3xl font-mono text-red-400 font-bold tracking-tight flex items-end gap-2">
-                        - $ {resumen.gastos.toLocaleString()} <span className="text-sm text-gray-500/50 mb-1">USD</span>
+                        - $ {resumen.gastos.toLocaleString()} <span className="text-sm text-gray-500/50 mb-1">{config.meta_moneda || "USD"}</span>
                     </p>
                 </div>
 
@@ -104,7 +104,7 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                 <div className="bg-gradient-to-br from-indigo-900/40 to-black border border-indigo-500/30 p-6 rounded-2xl shadow-lg shadow-indigo-900/10">
                     <p className="text-xs text-indigo-300 uppercase font-bold mb-1">Disponible</p>
                     <p className="text-3xl font-mono text-white font-bold tracking-tight flex items-end gap-2">
-                        $ {resumen.final.toLocaleString()} <span className="text-sm text-indigo-300/50 mb-1">USD</span>
+                        $ {resumen.final.toLocaleString()} <span className="text-sm text-indigo-300/50 mb-1">{config.meta_moneda || "USD"}</span>
                     </p>
                 </div>
             </div>
