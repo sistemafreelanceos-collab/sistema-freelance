@@ -1,23 +1,71 @@
-"use client";
+import { useState, useEffect } from "react";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/solid";
-import { PostIt, POSTIT_STYLES } from '../types';
+import { PostIt, POSTIT_STYLES } from '../../../../types';
 
 interface Props {
     postIts: PostIt[];
     onAddClick: () => void;
     onDeleteNote: (id: string) => void;
+    onEdit: (nota: PostIt) => void; // Nuevo
 }
 
-export default function NotesBoard({ postIts, onAddClick, onDeleteNote }: Props) {
+export default function NotesBoard({ postIts, onAddClick, onDeleteNote, onEdit }: Props) {
+    // Estado local para DnD visual (ordenamiento temporal)
+    const [notes, setNotes] = useState<PostIt[]>(postIts);
+    const [draggedItem, setDraggedItem] = useState<number | null>(null);
+
+    // Sincronizar props con estado local
+    useEffect(() => { setNotes(postIts); }, [postIts]);
+
+    // Función para calcular "Envejecimiento"
+    const getAgingStyle = (fechaStr: string) => {
+        const dias = Math.floor((new Date().getTime() - new Date(fechaStr).getTime()) / (1000 * 3600 * 24));
+        let style = "";
+
+        if (dias > 15) {
+            // Muy antiguo: Se despega (animación viento) + Sombra levantada
+            style += " animate-[wiggle_3s_ease-in-out_infinite] shadow-[10px_10px_20px_rgba(0,0,0,0.4)] rotate-2 opacity-90";
+        } else if (dias > 7) {
+            // Medio antiguo: Un poco transparente y rotado
+            style += " opacity-95 rotate-1";
+        }
+        return style;
+    };
+
+    // Handlers DnD
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedItem(index);
+        e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (draggedItem === null || draggedItem === index) return;
+
+        // Reordenar localmente
+        const newNotes = [...notes];
+        const item = newNotes[draggedItem];
+        newNotes.splice(draggedItem, 1);
+        newNotes.splice(index, 0, item);
+
+        setNotes(newNotes);
+        setDraggedItem(index);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedItem(null);
+        // Aquí podríamos guardar el orden si hubiera campo 'orden' en BD
+    };
+
     return (
         <div className="w-full lg:w-[340px] bg-[#121212] border-l border-white/5 flex flex-col relative shadow-2xl h-full z-20">
             {/* Fondo Corcho Oscuro */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none" 
-                 style={{ 
-                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` 
-                 }}>
+            <div className="absolute inset-0 opacity-10 pointer-events-none"
+                style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }}>
             </div>
-            
+
             <div className="p-6 relative z-10 flex flex-col h-full">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
                     <div>
@@ -25,12 +73,12 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote }: Props)
                         <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Recordatorios</p>
                     </div>
                     <button onClick={onAddClick} className="p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-900/20 transition-all hover:scale-105 active:scale-95">
-                        <PlusIcon className="w-5 h-5"/>
+                        <PlusIcon className="w-5 h-5" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-8 px-2 pb-10">
-                    {postIts.length === 0 ? (
+                    {notes.length === 0 ? (
                         <div className="text-center py-20 flex flex-col items-center opacity-40">
                             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
                                 <span className="text-3xl">📌</span>
@@ -39,34 +87,55 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote }: Props)
                             <p className="text-xs text-gray-500 mt-1">Agrega una nota rápida</p>
                         </div>
                     ) : (
-                        postIts.map((nota) => (
-                            <div 
-                                key={nota.id} 
-                                className={`relative p-5 w-full min-h-[120px] shadow-xl transition-transform duration-300 hover:scale-[1.02] group cursor-default ${POSTIT_STYLES[nota.color]}`} 
-                                style={{ 
+                        notes.map((nota, index) => (
+                            <div
+                                key={nota.id}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, index)}
+                                onDragOver={(e) => handleDragOver(e, index)}
+                                onDragEnd={handleDragEnd}
+                                onClick={() => onEdit(nota)}
+                                className={`relative p-5 w-full min-h-[120px] shadow-xl transition-all duration-300 hover:scale-[1.02] hover:z-20 cursor-grab active:cursor-grabbing group ${POSTIT_STYLES[nota.color]} ${getAgingStyle(nota.fecha)}`}
+                                style={{
                                     transform: `rotate(${nota.rotacion}deg)`,
-                                    fontFamily: '"Comic Sans MS", "Chalkboard SE", sans-serif', // Fuente manual fallback
+                                    fontFamily: '"Comic Sans MS", "Chalkboard SE", sans-serif',
                                 }}
                             >
                                 {/* CINTA ADHESIVA (Tape Effect) */}
                                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-8 bg-white/20 blur-[1px] rotate-[-2deg] shadow-sm pointer-events-none"></div>
 
-                                <p className="text-lg leading-snug text-gray-800 break-words w-full font-medium">
+                                {/* MANCHA (Si es viejo +15d) */}
+                                {new Date().getTime() - new Date(nota.fecha).getTime() > 1296000000 && (
+                                    <div className="absolute bottom-0 right-0 w-16 h-16 bg-yellow-900/10 rounded-full blur-xl pointer-events-none"></div>
+                                )}
+
+                                <p className="text-lg leading-snug text-gray-800 break-words w-full font-medium select-none">
                                     {nota.texto}
                                 </p>
-                                
+
                                 <div className="absolute bottom-2 right-2 text-[10px] opacity-50 font-bold uppercase tracking-widest text-black/40">
-                                    {new Date(nota.fecha).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                                    {new Date(nota.fecha).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                 </div>
 
-                                <button onClick={() => onDeleteNote(nota.id)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110">
-                                    <XMarkIcon className="w-3 h-3" />
+                                {/* Botón Cerrar Mejorado */}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDeleteNote(nota.id); }}
+                                    className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-110 hover:bg-red-500 z-30"
+                                    title="Eliminar Nota"
+                                >
+                                    <XMarkIcon className="w-4 h-4" />
                                 </button>
                             </div>
                         ))
                     )}
                 </div>
             </div>
+            <style jsx global>{`
+                @keyframes wiggle {
+                    0%, 100% { transform: rotate(${Math.random() * 2}deg) translateY(0); }
+                    50% { transform: rotate(${-Math.random() * 2}deg) translateY(2px); }
+                }
+            `}</style>
         </div>
     );
 }

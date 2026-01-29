@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { toast } from "sonner";
 
 type Plan = "gratis" | "premium";
 
@@ -74,12 +75,12 @@ export default function PerfilPage() {
         console.error(error);
         // Intentamos cargar al menos los datos básicos de la sesión si falla la tabla
         setDatos({
-            nombre: session.user.user_metadata.full_name || "",
-            email: session.user.email || "",
-            empresa: session.user.user_metadata.business_name || "",
-            telefono: "",
-            direccion: "",
-            avatar_url: session.user.user_metadata.avatar_url || null
+          nombre: session.user.user_metadata.full_name || "",
+          email: session.user.email || "",
+          empresa: session.user.user_metadata.business_name || "",
+          telefono: "",
+          direccion: "",
+          avatar_url: session.user.user_metadata.avatar_url || null
         });
         setLoading(false);
         return;
@@ -128,13 +129,13 @@ export default function PerfilPage() {
 
       // 2. Obtener URL Pública
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      
+
       // 3. Actualizar estado visual inmediatamente
       setDatos({ ...datos, avatar_url: data.publicUrl });
-      alert("Foto cargada ✅. Dale a 'Guardar Cambios' para confirmar.");
+      toast.success("Foto cargada ✅. Dale a 'Guardar Cambios' para confirmar.");
 
     } catch (error: any) {
-      alert('Error subiendo imagen: ' + error.message);
+      toast.error('Error subiendo imagen: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -150,22 +151,22 @@ export default function PerfilPage() {
 
     // 1. ACTUALIZAR METADATOS (Para que el Header se actualice rápido)
     await supabase.auth.updateUser({
-        data: {
-            full_name: datos.nombre,
-            business_name: datos.empresa,
-            avatar_url: datos.avatar_url // Guardamos foto en metadatos
-        }
+      data: {
+        full_name: datos.nombre,
+        business_name: datos.empresa,
+        avatar_url: datos.avatar_url // Guardamos foto en metadatos
+      }
     });
 
     // 2. ACTUALIZAR TABLA PROFILES
     const updates = {
-        id: user.id, // Aseguramos ID
-        nombre: datos.nombre || null,
-        empresa: datos.empresa || null,
-        telefono: datos.telefono || null,
-        direccion: datos.direccion || null,
-        avatar_url: datos.avatar_url || null, // Guardamos foto en DB
-        updated_at: new Date(),
+      id: user.id, // Aseguramos ID
+      nombre: datos.nombre || null,
+      empresa: datos.empresa || null,
+      telefono: datos.telefono || null,
+      direccion: datos.direccion || null,
+      avatar_url: datos.avatar_url || null, // Guardamos foto en DB
+      updated_at: new Date(),
     };
 
     const { error } = await supabase
@@ -176,12 +177,12 @@ export default function PerfilPage() {
 
     if (error) {
       console.error(error);
-      alert("Error guardando perfil: " + error.message);
+      toast.error("Error guardando perfil: " + error.message);
       return;
     }
 
-    alert("¡Perfil actualizado con éxito! ✅");
-    router.refresh(); // Refrescar para actualizar layouts
+    toast.success("¡Perfil actualizado con éxito! ✅");
+    router.refresh();
   };
 
   // (Solo demo) Cambiar plan desde UI
@@ -200,7 +201,10 @@ export default function PerfilPage() {
       .eq("id", profile.id);
 
     if (error) {
-      alert(error.message);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
       return;
     }
 
@@ -226,33 +230,33 @@ export default function PerfilPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* COLUMNA IZQUIERDA */}
         <div className="space-y-6">
-          
+
           {/* Avatar CON FUNCIONALIDAD */}
           <div className="bg-[#161B22] border border-white/10 rounded-2xl p-6 text-center shadow-xl">
             <div className="w-24 h-24 mx-auto mb-4 relative group">
-                {datos.avatar_url ? (
-                     <img 
-                        src={datos.avatar_url} 
-                        alt="Avatar" 
-                        className="w-full h-full rounded-full object-cover border-4 border-[#0F1115] shadow-lg bg-gray-800" 
-                     />
-                ) : (
-                    <div className="w-full h-full bg-emerald-600 rounded-full flex items-center justify-center font-bold text-3xl text-white border-4 border-[#0F1115] shadow-lg">
-                        {initials}
-                    </div>
-                )}
-                
-                {/* Overlay al pasar el mouse */}
-                <label className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer text-white text-xs font-bold backdrop-blur-sm">
-                    📷 Cambiar
-                    <input 
-                        type="file" 
-                        className="hidden" 
-                        accept="image/*" 
-                        onChange={uploadAvatar} 
-                        disabled={uploading} 
-                    />
-                </label>
+              {datos.avatar_url ? (
+                <img
+                  src={datos.avatar_url}
+                  alt="Avatar"
+                  className="w-full h-full rounded-full object-cover border-4 border-[#0F1115] shadow-lg bg-gray-800"
+                />
+              ) : (
+                <div className="w-full h-full bg-emerald-600 rounded-full flex items-center justify-center font-bold text-3xl text-white border-4 border-[#0F1115] shadow-lg">
+                  {initials}
+                </div>
+              )}
+
+              {/* Overlay al pasar el mouse */}
+              <label className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer text-white text-xs font-bold backdrop-blur-sm">
+                📷 Cambiar
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={uploadAvatar}
+                  disabled={uploading}
+                />
+              </label>
             </div>
 
             <h2 className="text-xl font-bold text-white capitalize">{datos.nombre || "Sin nombre"}</h2>
@@ -260,14 +264,14 @@ export default function PerfilPage() {
 
             {/* Botón visible también por si no ven el hover */}
             <label className="cursor-pointer text-xs text-emerald-400 hover:text-emerald-300 font-medium border border-emerald-500/30 px-3 py-1 rounded-full transition inline-block">
-                {uploading ? "Subiendo..." : "Subir nueva foto"}
-                <input 
-                    type="file" 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={uploadAvatar} 
-                    disabled={uploading} 
-                />
+              {uploading ? "Subiendo..." : "Subir nueva foto"}
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={uploadAvatar}
+                disabled={uploading}
+              />
             </label>
           </div>
 
@@ -285,21 +289,21 @@ export default function PerfilPage() {
             </div>
 
             {profile && (
-            <div className="space-y-2 text-sm text-gray-400 mb-6">
-              <div className="flex justify-between">
-                <span>Estado:</span>
-                <span className={`font-bold ${profile.plan_status === "active" ? "text-emerald-400" : "text-red-400"}`}>
-                  {profile.plan_status === "active" ? "Activo" : "Inactivo"}
-                </span>
-              </div>
+              <div className="space-y-2 text-sm text-gray-400 mb-6">
+                <div className="flex justify-between">
+                  <span>Estado:</span>
+                  <span className={`font-bold ${profile.plan_status === "active" ? "text-emerald-400" : "text-red-400"}`}>
+                    {profile.plan_status === "active" ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
 
-              <div className="flex justify-between">
-                <span>Renovación:</span>
-                <span className="text-white">
-                  {profile.plan_renovacion ? profile.plan_renovacion : "—"}
-                </span>
+                <div className="flex justify-between">
+                  <span>Renovación:</span>
+                  <span className="text-white">
+                    {profile.plan_renovacion ? profile.plan_renovacion : "—"}
+                  </span>
+                </div>
               </div>
-            </div>
             )}
 
             <Link
@@ -414,7 +418,7 @@ export default function PerfilPage() {
               {/* Esto lo implementamos luego con reset password */}
               <button
                 className="text-sm text-white bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition"
-                onClick={() => alert("Luego hacemos reset password con Supabase")}
+                onClick={() => toast.info("Luego hacemos reset password con Supabase")}
               >
                 Cambiar Contraseña
               </button>

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { toast } from "sonner";
 
 type Plan = "gratis" | "premium";
 type Profile = {
@@ -54,7 +55,7 @@ export default function SuscripcionPage() {
         .single();
 
       if (error) {
-        alert("No se pudo cargar tu suscripción. Revisa profiles/RLS.");
+        toast.error("No se pudo cargar tu suscripción. Revisa profiles/RLS.");
         console.error(error);
         setCargando(false);
         return;
@@ -177,11 +178,10 @@ export default function SuscripcionPage() {
                 </p>
 
                 <span
-                  className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-2 border ${
-                    profile?.plan_status === "active"
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : "bg-red-500/10 text-red-400 border-red-500/20"
-                  }`}
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-2 border ${profile?.plan_status === "active"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-red-500/10 text-red-400 border-red-500/20"
+                    }`}
                 >
                   • {profile?.plan_status === "active" ? "Activo" : "Inactivo"}
                 </span>
@@ -312,7 +312,7 @@ export default function SuscripcionPage() {
             <button
               className="w-full border border-gray-600 text-gray-300 hover:border-white hover:text-white py-2 rounded-lg text-xs font-bold transition disabled:opacity-60"
               disabled={!isPremium}
-              onClick={() => alert("Luego conectamos Stripe para métodos de pago")}
+              onClick={() => toast.info("Luego conectamos Stripe para métodos de pago")}
             >
               + Agregar Nuevo Método
             </button>

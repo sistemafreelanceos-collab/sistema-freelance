@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Estados
   const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   // Usuario
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("Usuario");
@@ -24,7 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { ruta: "/dashboard", icon: "🏠", label: "Inicio" },
     { ruta: "/dashboard/calendario", icon: "📅", label: "Calendario" },
     { ruta: "/dashboard/clientes", icon: "👥", label: "Clientes" },
-    { ruta: "/dashboard/cuentas", icon: "💳", label: "Cuentas" }, 
+    { ruta: "/dashboard/cuentas", icon: "💳", label: "Cuentas" },
     { ruta: "/dashboard/finanzas", icon: "💰", label: "Finanzas" },
     { ruta: "/dashboard/habitos", icon: "🥗", label: "Hábitos" },
     { ruta: "/dashboard/estadisticas", icon: "📈", label: "Estadísticas" },
@@ -49,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setUserEmail(session.user.email ?? "");
       const meta = session.user.user_metadata || {};
       const name = meta.full_name || meta.name || session.user.email?.split("@")[0] || "Usuario";
-      
+
       setUserName(name);
       setAvatarUrl(meta.avatar_url || null);
       setUserInitials(makeInitials(name));
@@ -62,7 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     loadUser();
 
     const handleThemeChange = (event: any) => {
-       if (event.detail) document.documentElement.style.setProperty('--sys-bg', event.detail);
+      if (event.detail) document.documentElement.style.setProperty('--sys-bg', event.detail);
     };
     window.addEventListener('change-theme', handleThemeChange);
     return () => window.removeEventListener('change-theme', handleThemeChange);
@@ -76,9 +77,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     // Fondo controlado por variable CSS
-    <div className="flex h-screen text-white font-sans overflow-hidden transition-colors duration-500" 
-         style={{ backgroundColor: 'var(--sys-bg, #0F1115)' }}>
-      
+    <div className="flex h-screen text-white font-sans overflow-hidden transition-colors duration-500"
+      style={{ backgroundColor: 'var(--sys-bg, #0F1115)' }}>
+
       {/* SIDEBAR (Ahora semitransparente para que tome el color del fondo) */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-black/20 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-6 flex items-center justify-between">
@@ -95,9 +96,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               key={item.ruta}
               href={item.ruta}
               onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-                pathname === item.ruta ? "bg-white/10 text-white border border-white/10 shadow-sm" : "text-white/60 hover:bg-white/5 hover:text-white"
-              }`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${pathname === item.ruta ? "bg-white/10 text-white border border-white/10 shadow-sm" : "text-white/60 hover:bg-white/5 hover:text-white"
+                }`}
             >
               <span>{item.icon}</span> {item.label}
             </Link>
@@ -134,9 +134,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-sm font-bold text-white">{userName}</p>
               </div>
               {avatarUrl ? (
-                 <img src={avatarUrl} alt="Perfil" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-white/10 shadow-lg bg-gray-800"/>
+                <img src={avatarUrl} alt="Perfil" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-white/10 shadow-lg bg-gray-800" />
               ) : (
-                 <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white/10 shadow-lg">{userInitials}</div>
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white/10 shadow-lg">{userInitials}</div>
               )}
             </button>
 
@@ -157,6 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 relative scroll-smooth">{children}</div>
       </main>
+
     </div>
   );
 }

@@ -1,198 +1,150 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient";
-import { 
-  WalletIcon, 
-  PresentationChartLineIcon, 
-  ChartBarIcon, 
-  CreditCardIcon
-} from "@heroicons/react/24/outline";
-import { Movimiento, GastoFijo, Presupuesto, ConfigFinanzas } from "./types";
+import { useState } from "react";
+import { useFinanzas } from "../../hooks/useFinanzas";
+import { Movimiento, GastoFijo, Presupuesto } from "../../../types";
+import { WalletIcon, PresentationChartLineIcon, ChartBarIcon, CreditCardIcon } from "@heroicons/react/24/outline";
+import SkeletonDashboard from "../components/SkeletonDashboard";
 
-// Importamos tus componentes
+// Componentes
 import TableroTab from "./components/TableroTab";
 import PresupuestosTab from "./components/PresupuestosTab";
 import GastosFijosTab from "./components/GastosFijosTab";
-import { ModalMovimiento, ModalPresupuesto, ModalGastoFijo } from "./components/ModalesFinanzas";
+import { ModalMovimiento, ModalPresupuesto, ModalGastoFijo, ModalConfirmacion, ModalDetalleGasto } from "./components/ModalesFinanzas";
 
 export default function FinanzasPage() {
+  const {
+    loading,
+    movimientos,
+    gastosFijos,
+    presupuestos,
+    cuentas,
+    config,
+    cargarDatos,
+    guardarMovimiento,
+    guardarPresupuesto,
+    guardarGastoFijo,
+    eliminarItem,
+    updateConfig
+  } = useFinanzas();
+
   const [activeTab, setActiveTab] = useState("tablero");
-  const [loading, setLoading] = useState(true);
-  
-  // --- ESTADOS DE DATOS ---
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
-  const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([]);
-  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
-  const [cuentas, setCuentas] = useState<any[]>([]);
-  const [config, setConfig] = useState<ConfigFinanzas>({ porcentaje_ahorro: 10 });
 
-  // --- ESTADOS DE MODALES ---
-  const [modales, setModales] = useState({ mov: false, fijo: false, presu: false });
+  // Modales & Estado UI
+  const [modales, setModales] = useState({ mov: false, fijo: false, presu: false, delete: false, detalle: false });
+  const [movimientoEditar, setMovimientoEditar] = useState<Movimiento | null>(null);
+  const [presupuestoEditar, setPresupuestoEditar] = useState<Presupuesto | null>(null);
+  const [gastoFijoEditar, setGastoFijoEditar] = useState<GastoFijo | null>(null);
+  const [gastoSeleccionado, setGastoSeleccionado] = useState<GastoFijo | null>(null);
 
-  // --- CARGA INICIAL ---
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+  const [idToDelete, setIdToDelete] = useState<string | null>(null);
+  const [deleteType, setDeleteType] = useState<'movimiento' | 'presupuesto' | 'gasto_fijo'>('movimiento');
 
-  const cargarDatos = async () => {
-    setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const uid = session.user.id;
+  // --- HANDLERS UI ---
+  const handleSolicitarEliminacion = (id: string, tipo: 'movimiento' | 'presupuesto' | 'gasto_fijo') => {
+    setIdToDelete(id);
+    setDeleteType(tipo);
+    setModales({ ...modales, delete: true });
+  };
 
-    // Cargamos TODO
-    const [movs, fijos, presus, conf, ctas] = await Promise.all([
-      supabase.from("movimientos").select("*").eq("owner_id", uid).limit(2000), 
-      supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
-      supabase.from("presupuestos").select("*").eq("owner_id", uid),
-      supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(),
-      supabase.from("cuentas").select("id, nombre").eq("owner_id", uid)
-    ]);
-
-    // Procesamos Movimientos
-    if (movs.data && ctas.data) {
-        const mapCuentas = new Map(ctas.data.map((c: any) => [c.id, c.nombre]));
-        
-        let listaOrdenada = movs.data.map((m: any) => ({
-            ...m,
-            cuenta_nombre: m.cuenta_id ? mapCuentas.get(m.cuenta_id) : '---'
-        }));
-
-        // Ordenamiento: Fecha > Hora
-        listaOrdenada.sort((a: any, b: any) => {
-            const fechaA = new Date(a.fecha).getTime();
-            const fechaB = new Date(b.fecha).getTime();
-            if (fechaA !== fechaB) return fechaB - fechaA;
-            const horaA = new Date(a.created_at || 0).getTime();
-            const horaB = new Date(b.created_at || 0).getTime();
-            return horaB - horaA;
-        });
-
-        setMovimientos(listaOrdenada as any);
+  const handleConfirmarEliminacion = async () => {
+    if (idToDelete) {
+      await eliminarItem(idToDelete, deleteType);
+      setIdToDelete(null);
+      setModales({ ...modales, delete: false });
     }
-
-    if (fijos.data) setGastosFijos(fijos.data as any);
-    if (presus.data) setPresupuestos(presus.data as any);
-    if (ctas.data) setCuentas(ctas.data as any);
-    
-    if (conf.data) {
-        setConfig(conf.data as any);
-    } else {
-        await supabase.from("config_finanzas").insert({ owner_id: uid, porcentaje_ahorro: 10 });
-    }
-
-    setLoading(false);
   };
 
-  // --- GUARDAR ---
-  const handleSave = async (tabla: string, data: any, modalKey: keyof typeof modales) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { error } = await supabase.from(tabla).insert({ 
-          owner_id: session?.user.id, 
-          ...data 
-      });
-
-      if (error) {
-          alert("Error: " + error.message);
-      } else {
-          await cargarDatos(); 
-          setModales({ ...modales, [modalKey]: false }); 
-      }
+  const handleSaveMovimiento = async (data: Partial<Movimiento>) => {
+    await guardarMovimiento(data, movimientoEditar?.id);
+    setModales({ ...modales, mov: false });
+    setMovimientoEditar(null);
   };
 
-  const handleUpdateConfig = async (key: string, val: number) => {
-      setConfig({ ...config, [key]: val }); 
-      const { data: { session } } = await supabase.auth.getSession();
-      await supabase.from("config_finanzas").update({ [key]: val }).eq("owner_id", session?.user.id);
+  const handleSavePresupuesto = async (data: Partial<Presupuesto>) => {
+    await guardarPresupuesto(data, presupuestoEditar?.id);
+    setModales({ ...modales, presu: false });
+    setPresupuestoEditar(null);
   };
 
-  const saldoTotalActual = movimientos.reduce((acc, m) => acc + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0);
+  const handleSaveGastoFijo = async (data: any) => {
+    await guardarGastoFijo(data, gastoFijoEditar?.id);
+    setModales({ ...modales, fijo: false });
+    setGastoFijoEditar(null);
+  };
 
-  if (loading) return <div className="p-10 text-gray-400 animate-pulse">Cargando...</div>;
+  if (loading) return <SkeletonDashboard />;
 
   return (
     <div className="max-w-7xl mx-auto pb-20 p-4 sm:p-6">
-      
-      {/* HEADER */}
       <div className="flex flex-col lg:flex-row justify-between items-end mb-8 gap-6">
-        <div>
-            <h1 className="text-3xl font-bold text-white mb-1 flex items-center gap-2">
-                <WalletIcon className="w-8 h-8 text-indigo-500" /> 
-                CFO Virtual
-            </h1>
-            <p className="text-gray-400 text-sm">Control total de flujo de caja.</p>
-        </div>
-        
-        {/* TABS */}
+        <div><h1 className="text-3xl font-bold text-white mb-1 flex items-center gap-2"><WalletIcon className="w-8 h-8 text-indigo-500" /> CFO Virtual</h1><p className="text-gray-400 text-sm">Control total de flujo de caja.</p></div>
         <div className="flex bg-[#161B22] rounded-xl p-1 border border-white/10 overflow-x-auto w-full lg:w-auto">
-            {[
-                { id: "tablero", label: "Tablero", icon: PresentationChartLineIcon },
-                { id: "presupuestos", label: "Semáforo", icon: ChartBarIcon },
-                { id: "fijos", label: "Recurrentes", icon: CreditCardIcon },
-            ].map((tab) => (
-                <button 
-                    key={tab.id} 
-                    onClick={() => setActiveTab(tab.id)} 
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
-                >
-                    <tab.icon className="w-4 h-4" /> {tab.label}
-                </button>
-            ))}
+          {[
+            { id: "tablero", label: "Tablero", icon: PresentationChartLineIcon },
+            { id: "presupuestos", label: "Semáforo", icon: ChartBarIcon },
+            { id: "fijos", label: "Recurrentes", icon: CreditCardIcon },
+          ].map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}><tab.icon className="w-4 h-4" /> {tab.label}</button>
+          ))}
         </div>
       </div>
 
-      {/* VISTAS */}
       {activeTab === 'tablero' && (
-        <TableroTab 
-            movimientos={movimientos} 
-            gastosFijos={gastosFijos} 
-            config={config} 
-            saldoActual={saldoTotalActual}
-            onUpdateConfig={handleUpdateConfig}
-            onOpenModal={() => setModales({ ...modales, mov: true })}
+        <TableroTab
+          movimientos={movimientos}
+          gastosFijos={gastosFijos}
+          config={config}
+          presupuestos={presupuestos}
+          saldoActual={movimientos.reduce((acc, m) => acc + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0)}
+          onUpdateConfig={updateConfig}
+          onOpenModal={() => { setMovimientoEditar(null); setModales({ ...modales, mov: true }); }}
+          onEdit={(m) => { setMovimientoEditar(m); setModales({ ...modales, mov: true }); }}
+          onDelete={(id) => handleSolicitarEliminacion(id, 'movimiento')}
         />
       )}
 
       {activeTab === 'presupuestos' && (
-        <PresupuestosTab 
-            movimientos={movimientos} 
-            presupuestos={presupuestos} 
-            onOpenModal={() => setModales({ ...modales, presu: true })} 
+        <PresupuestosTab
+          movimientos={movimientos}
+          presupuestos={presupuestos}
+          onOpenModal={() => { setPresupuestoEditar(null); setModales({ ...modales, presu: true }); }}
+          onEdit={(p) => { setPresupuestoEditar(p); setModales({ ...modales, presu: true }); }}
+          onDelete={(id) => handleSolicitarEliminacion(id, 'presupuesto')}
         />
       )}
-      
+
       {activeTab === 'fijos' && (
-         <GastosFijosTab 
-            gastosFijos={gastosFijos} 
-            // movimientos={movimientos}  <--- ¡LÍNEA ELIMINADA!
-            cuentas={cuentas} 
-            onOpenModal={() => setModales({...modales, fijo: true})} 
-            onRecargar={cargarDatos}
-         />
+        <GastosFijosTab
+          gastosFijos={gastosFijos}
+          cuentas={cuentas}
+          movimientos={movimientos}
+          onOpenModal={() => { setGastoFijoEditar(null); setModales({ ...modales, fijo: true }); }}
+          onRecargar={cargarDatos}
+          onEdit={(g) => { setGastoFijoEditar(g); setModales({ ...modales, fijo: true }); }}
+          onDelete={(id) => handleSolicitarEliminacion(id, 'gasto_fijo')}
+          onSelect={(g) => { setGastoSeleccionado(g); setModales({ ...modales, detalle: true }); }}
+        />
       )}
 
-      {/* --- MODALES --- */}
-      
-      <ModalMovimiento 
-        isOpen={modales.mov} 
-        onClose={() => setModales({ ...modales, mov: false })} 
-        onSave={(d: any) => handleSave("movimientos", d, "mov")} 
-        cuentas={cuentas} 
+      <ModalMovimiento isOpen={modales.mov} onClose={() => { setModales({ ...modales, mov: false }); setMovimientoEditar(null); }} onSave={handleSaveMovimiento} cuentas={cuentas} movimientoEditar={movimientoEditar} />
+      <ModalPresupuesto isOpen={modales.presu} onClose={() => { setModales({ ...modales, presu: false }); setPresupuestoEditar(null); }} onSave={handleSavePresupuesto} presupuestoEditar={presupuestoEditar} />
+      <ModalGastoFijo isOpen={modales.fijo} onClose={() => { setModales({ ...modales, fijo: false }); setGastoFijoEditar(null); }} onSave={handleSaveGastoFijo} gastoEditar={gastoFijoEditar} />
+
+      <ModalDetalleGasto
+        isOpen={modales.detalle}
+        onClose={() => setModales({ ...modales, detalle: false })}
+        gasto={gastoSeleccionado}
+        movimientos={movimientos}
       />
 
-      <ModalPresupuesto 
-        isOpen={modales.presu} 
-        onClose={() => setModales({ ...modales, presu: false })} 
-        onSave={(d: any) => handleSave("presupuestos", d, "presu")} 
+      <ModalConfirmacion
+        isOpen={modales.delete}
+        onClose={() => setModales({ ...modales, delete: false })}
+        onConfirm={handleConfirmarEliminacion}
+        titulo="¿Eliminar Registro?"
+        mensaje="Esta acción es irreversible."
       />
-
-      <ModalGastoFijo 
-        isOpen={modales.fijo} 
-        onClose={() => setModales({ ...modales, fijo: false })} 
-        onSave={(d: any) => handleSave("gastos_fijos", d, "fijo")} 
-      />
-
     </div>
   );
 }

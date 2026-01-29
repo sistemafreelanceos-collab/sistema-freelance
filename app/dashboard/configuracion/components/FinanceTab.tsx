@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ConfigPerfil } from "../types"; // <--- IMPORTAMOS EL TIPO OFICIAL
+import { ConfigPerfil } from "../../../../types"; // <--- IMPORTAMOS EL TIPO OFICIAL
 
 // Eliminamos la definición local de ConfigPerfil y Moneda para usar la global o inferencia
 type Moneda = "USD" | "COP" | "EUR" | "MXN";
@@ -73,11 +73,10 @@ export default function FinanceTab({ config, setConfig }: Props) {
               <button
                 key={m}
                 onClick={() => toggleMoneda(m)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                  active
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${active
                     ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
                     : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 {m}
               </button>
@@ -101,11 +100,10 @@ export default function FinanceTab({ config, setConfig }: Props) {
               <button
                 key={m}
                 onClick={() => setMetaMoneda(m)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
-                  selected
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${selected
                     ? "bg-blue-500/10 text-blue-200 border-blue-500/30"
                     : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
-                }`}
+                  }`}
               >
                 {selected ? `✓ ${m}` : m}
               </button>

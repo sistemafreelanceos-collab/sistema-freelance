@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ConfigPerfil } from "../types"; // <--- IMPORTAMOS EL TIPO OFICIAL
+import { ConfigPerfil } from "../../../../types"; // <--- IMPORTAMOS EL TIPO OFICIAL
 
 type Props = {
   config: ConfigPerfil;

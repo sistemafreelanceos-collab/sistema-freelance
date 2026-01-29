@@ -8,11 +8,20 @@ interface Props {
 
 export default function DailyCapacity({ eventos, fechaSeleccionada }: Props) {
     const stats = useMemo(() => {
+        // Validación de seguridad para fecha
+        if (!fechaSeleccionada || typeof fechaSeleccionada.toDateString !== 'function') {
+            return { horas: 0, porcentaje: 0, color: "bg-gray-500", texto: "Sin fecha" };
+        }
+
         // Filtrar solo TAREAS (ignoramos cobros/pagos que no consumen tiempo)
         const tareasDelDia = eventos.filter(ev => {
             const esTarea = ev.resource?.tipo_evento === 'tarea' || ev.resource?.tipo_evento === 'proyecto';
-            if (!esTarea) return false;
-            return new Date(ev.start).toDateString() === fechaSeleccionada.toDateString();
+            // Ignorar eventos de todo el día para el cálculo de capacidad
+            if (!esTarea || ev.allDay) return false;
+
+            try {
+                return new Date(ev.start).toDateString() === fechaSeleccionada.toDateString();
+            } catch (e) { return false; }
         });
 
         // Calculamos horas (duración real)
@@ -20,13 +29,13 @@ export default function DailyCapacity({ eventos, fechaSeleccionada }: Props) {
             const duracionMs = new Date(curr.end).getTime() - new Date(curr.start).getTime();
             return acc + (duracionMs / (1000 * 60 * 60));
         }, 0);
-        
+
         const maxHoras = 8;
         const porcentaje = Math.min((horasTotales / maxHoras) * 100, 100);
-        
+
         let color = "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]";
         let texto = "Día Ligero 🌿";
-        
+
         if (horasTotales >= 4 && horasTotales < 7) {
             color = "bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]";
             texto = "Día Productivo ⚡";
@@ -43,7 +52,7 @@ export default function DailyCapacity({ eventos, fechaSeleccionada }: Props) {
             <div className="flex justify-between items-end mb-3 relative z-10">
                 <div>
                     <p className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">
-                        Carga ({fechaSeleccionada.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })})
+                        Carga ({fechaSeleccionada && typeof fechaSeleccionada.toLocaleDateString === 'function' ? fechaSeleccionada.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }) : 'Hoy'})
                     </p>
                     <div className="flex items-baseline gap-1">
                         <h3 className="text-white font-bold text-2xl">{stats.horas.toFixed(1)}h</h3>
@@ -56,7 +65,7 @@ export default function DailyCapacity({ eventos, fechaSeleccionada }: Props) {
                     </span>
                 </div>
             </div>
-            
+
             {/* Barra de progreso */}
             <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden relative">
                 <div className={`h-full transition-all duration-700 ease-out ${stats.color}`} style={{ width: `${stats.porcentaje}%` }}></div>
