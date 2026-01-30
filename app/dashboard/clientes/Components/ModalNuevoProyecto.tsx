@@ -58,7 +58,7 @@ export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, us
 
   const handleSubmit = async () => {
     if (!cliente || !form.nombre) return toast.error("El nombre es obligatorio");
-    if (form.monto <= 0) return toast.error("El monto debe ser mayor a 0");
+    if (Number(form.monto) <= 0) return toast.error("El monto debe ser mayor a 0");
 
     // Validar monto
     const montoFinal = Number(form.monto);
