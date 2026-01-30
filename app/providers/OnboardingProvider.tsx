@@ -12,6 +12,17 @@ interface OnboardingContextType {
     startModuleTour: (module: 'finanzas' | 'clientes' | 'calendario') => void;
 }
 
+// DriverJS Types help
+type DriveStep = {
+    element?: string;
+    popover: {
+        title: string;
+        description: string;
+        side?: "top" | "right" | "bottom" | "left" | "top-start" | "top-end" | "bottom-start" | "bottom-end" | "right-start" | "right-end" | "left-start" | "left-end"; // driver.js specific sides
+        align?: "start" | "center" | "end";
+    };
+};
+
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
@@ -24,7 +35,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
                 popover: {
                     title: '👋 ¡Bienvenido a OnyxOS!',
                     description: 'Tu nuevo sistema operativo para gestionar clientes, finanzas y equipo.',
-                    side: "left", align: 'start'
+                    // No side/element = Center
                 }
             },
             { element: '#tour-workspace-switcher', popover: { title: '🏢 Tu Espacio', description: 'Cambia entre tu espacio Personal y tu Empresa aquí.', side: "right", align: 'start' } },
@@ -38,7 +49,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
                 popover: {
                     title: '💰 Módulo Financiero',
                     description: 'Aquí controlas la salud de tu negocio. Vamos a ver lo clave.',
-                    side: "center", align: 'center'
                 }
             },
             { element: '#tour-finance-overview', popover: { title: '📊 Visión General', description: 'Tu balance actual, ingresos y gastos del mes.', side: "bottom", align: 'start' } },
@@ -49,7 +59,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
                 popover: {
                     title: '👥 Cartera de Clientes',
                     description: 'Gestiona proyectos y relaciones comerciales.',
-                    side: "center", align: 'center'
                 }
             },
             { element: '#tour-clients-header', popover: { title: '➕ Nuevo Cliente', description: 'Registra un nuevo cliente o prospecto aquí.', side: "bottom", align: 'start' } },
@@ -60,7 +69,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
                 popover: {
                     title: '📅 Agenda Operativa',
                     description: 'Tu tiempo es dinero. Organízalo aquí.',
-                    side: "center", align: 'center'
                 }
             },
             { element: '#tour-calendar-sync', popover: { title: '🔄 Google Sync', description: 'Sincroniza tus eventos bidireccionalmente.', side: "bottom", align: 'start' } },
@@ -89,7 +97,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         const tourDriver = driver({
             showProgress: true,
             animate: true,
-            steps: steps,
+            steps: steps as any,
             onDestroyStarted: () => {
                 tourDriver.destroy();
                 if (tourType === 'global' && userId) {

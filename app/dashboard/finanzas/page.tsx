@@ -23,10 +23,74 @@ export default function FinanzasPage() {
     startModuleTour('finanzas');
   }, []);
 
+  const [activeTab, setActiveTab] = useState<'tablero' | 'presupuestos' | 'fijos'>('tablero');
+
   const {
     loading,
-    // ...
+    movimientos,
+    gastosFijos,
+    presupuestos,
+    cuentas,
+    config,
+    cargarDatos,
+    guardarMovimiento,
+    guardarPresupuesto,
+    guardarGastoFijo,
+    eliminarItem,
+    updateConfig
   } = useFinanzas();
+
+  // Estados para modales
+  const [modales, setModales] = useState({
+    mov: false,
+    presu: false,
+    fijo: false,
+    detalle: false,
+    delete: false
+  });
+
+  // Estados para edición/selección
+  const [movimientoEditar, setMovimientoEditar] = useState<Movimiento | null>(null);
+  const [presupuestoEditar, setPresupuestoEditar] = useState<Presupuesto | null>(null);
+  const [gastoFijoEditar, setGastoFijoEditar] = useState<GastoFijo | null>(null);
+  const [gastoSeleccionado, setGastoSeleccionado] = useState<GastoFijo | null>(null);
+
+  // Handlers
+  const handleSaveMovimiento = async (data: any) => {
+    await guardarMovimiento(data, movimientoEditar?.id);
+    setModales({ ...modales, mov: false });
+    setMovimientoEditar(null);
+  };
+
+  const handleSavePresupuesto = async (data: any) => {
+    await guardarPresupuesto(data, presupuestoEditar?.id);
+    setModales({ ...modales, presu: false });
+    setPresupuestoEditar(null);
+  };
+
+  const handleSaveGastoFijo = async (data: any) => {
+    await guardarGastoFijo(data, gastoFijoEditar?.id);
+    setModales({ ...modales, fijo: false });
+    setGastoFijoEditar(null);
+  };
+
+  const handleSolicitarEliminacion = (id: string, tipo: 'movimiento' | 'presupuesto' | 'gasto_fijo') => {
+    // Aquí podríamos guardar el ID/Tipo en un estado temporal para el modal de confirmación
+    // Por simplicidad, usaremos confirmación directa o adaptaremos el modal existente
+    // Pero el código de abajo usa handleConfirmarEliminacion, así que necesitamos estado para eso.
+    setPendingDelete({ id, tipo });
+    setModales({ ...modales, delete: true });
+  };
+
+  const [pendingDelete, setPendingDelete] = useState<{ id: string, tipo: 'movimiento' | 'presupuesto' | 'gasto_fijo' } | null>(null);
+
+  const handleConfirmarEliminacion = async () => {
+    if (pendingDelete) {
+      await eliminarItem(pendingDelete.id, pendingDelete.tipo);
+      setModales({ ...modales, delete: false });
+      setPendingDelete(null);
+    }
+  };
 
   // ... (rest of code)
 
@@ -42,7 +106,7 @@ export default function FinanzasPage() {
           ].map((tab) => (
             <Button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as 'tablero' | 'presupuestos' | 'fijos')}
               variant={activeTab === tab.id ? 'primary' : 'ghost'}
               size="sm"
               className={`whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20' : 'text-gray-400'}`}
