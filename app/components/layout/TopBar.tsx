@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { useNotifications } from "@/app/hooks/useNotifications";
+import { useUI } from "@/app/providers/UIProvider";
 import {
     MagnifyingGlassIcon,
     PlusIcon,
@@ -21,7 +22,6 @@ interface TopBarProps {
     userEmail: string;
     avatarUrl: string | null;
     userInitials: string;
-    onOpenCommand: () => void;
 }
 
 export default function TopBar({
@@ -29,12 +29,12 @@ export default function TopBar({
     userName,
     userEmail,
     avatarUrl,
-    userInitials,
-    onOpenCommand
+    userInitials
 }: TopBarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+    const { openCommand } = useUI();
 
     const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false);
     const [quickActionsOpen, setQuickActionsOpen] = useState(false);
@@ -70,7 +70,8 @@ export default function TopBar({
             {/* CENTER: Global Search Bar */}
             <div className="hidden md:flex flex-1 max-w-md mx-4">
                 <button
-                    onClick={onOpenCommand}
+                    id="tour-global-search"
+                    onClick={openCommand}
                     className="w-full flex items-center gap-3 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-400 transition-all group"
                 >
                     <MagnifyingGlassIcon className="w-4 h-4 group-hover:text-white" />
@@ -109,9 +110,6 @@ export default function TopBar({
                         </div>
                     )}
                 </div>
-
-
-
 
                 {/* Notifications */}
                 <div className="relative">
@@ -214,7 +212,7 @@ export default function TopBar({
             </div>
 
             {/* Mobile Search Button (visible only on mobile) */}
-            <button onClick={onOpenCommand} className="md:hidden absolute left-14 text-white/50 hover:text-white">
+            <button onClick={openCommand} className="md:hidden absolute left-14 text-white/50 hover:text-white">
                 <MagnifyingGlassIcon className="w-5 h-5" />
             </button>
 

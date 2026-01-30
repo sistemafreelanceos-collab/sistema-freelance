@@ -22,6 +22,10 @@ interface SidebarProps {
     planUsuario: "gratis" | "premium";
 }
 
+import WorkspaceSwitcher from "./WorkspaceSwitcher";
+
+// ...
+
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen, planUsuario }: SidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
@@ -46,22 +50,23 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen, planUsuario
       w-64
       `}
         >
-            <div className={`p-6 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
-                <div className="flex items-center gap-2 overflow-hidden">
-                    <div className={`w-8 h-8 min-w-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black shadow-lg shadow-emerald-500/20 transition-all ${collapsed ? "scale-110" : ""}`}>
-                        F
-                    </div>
-                    {!collapsed && <span className="font-bold text-lg tracking-tight whitespace-nowrap animate-in fade-in duration-300">FreelanceOS</span>}
-                </div>
+            <div id="tour-workspace-switcher" className={`p-4 flex flex-col gap-4 border-b border-white/5`}>
+                <WorkspaceSwitcher collapsed={collapsed} />
 
                 {/* Mobile Close */}
-                <button onClick={() => setMobileMenuOpen(false)} className="md:hidden text-gray-400 hover:text-white">✕</button>
+                <button onClick={() => setMobileMenuOpen(false)} className="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
             </div>
 
             <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto scrollbar-hide">
                 {MENU_ITEMS.map((item) => (
                     <Link
                         key={item.ruta}
+                        id={
+                            item.ruta === "/dashboard/clientes" ? "tour-nav-clientes" :
+                                item.ruta === "/dashboard/finanzas" ? "tour-nav-finanzas" :
+                                    item.ruta === "/dashboard/configuracion" ? "tour-settings" :
+                                        undefined
+                        }
                         href={item.ruta}
                         onClick={() => setMobileMenuOpen(false)}
                         title={collapsed ? item.label : ""}

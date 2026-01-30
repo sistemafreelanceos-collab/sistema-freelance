@@ -13,24 +13,13 @@ import {
     PlusIcon
 } from "@heroicons/react/24/outline";
 
-interface Props {
-    open: boolean;
-    setOpen: (open: boolean) => void;
-}
+import { useUI } from "@/app/providers/UIProvider";
 
-export default function CommandPalette({ open, setOpen }: Props) {
+export default function CommandPalette() {
+    const { commandOpen: open, setCommandOpen: setOpen } = useUI();
     const router = useRouter();
 
-    useEffect(() => {
-        const down = (e: KeyboardEvent) => {
-            if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                setOpen(true); // Toggle logic can be improved by checking !open
-            }
-        };
-        document.addEventListener("keydown", down);
-        return () => document.removeEventListener("keydown", down);
-    }, [setOpen]);
+    // Keyboard listener moved to UIProvider
 
     const runCommand = (command: () => void) => {
         setOpen(false);

@@ -8,13 +8,14 @@ import FinanceTab from "./components/FinanceTab";
 import ServicesTab from "./components/ServicesTab";
 import ContractsTab from "./components/ContractsTab";
 import ProfileTab from "./components/ProfileTab";
-import DataTab from "./components/DataTab"; // New import
-import { toast } from "sonner"; // New import
+import DataTab from "./components/DataTab";
+import TeamTab from "./components/TeamTab"; // New import
+import { toast } from "sonner";
 
 export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"perfil" | "marca" | "finanzas" | "servicios" | "contratos" | "datos">("perfil"); // Default to perfil
+  const [activeTab, setActiveTab] = useState<"perfil" | "marca" | "finanzas" | "servicios" | "contratos" | "datos" | "equipo">("perfil"); // Default to perfil
   const [saving, setSaving] = useState(false);
 
   // Estado centralizado para el PERFIL (Marca y Finanzas comparten tabla)
@@ -150,14 +151,15 @@ export default function ConfiguracionPage() {
           { id: "finanzas", label: "💰 Finanzas & Metas" },
           { id: "servicios", label: "📦 Servicios Recurrentes" },
           { id: "contratos", label: "📜 Contratos & Cláusulas" },
+          { id: "equipo", label: "👥 Equipo" }, // New tab
           { id: "datos", label: "💾 Datos" }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`pb - 3 text - sm font - bold whitespace - nowrap transition border - b - 2 ${activeTab === tab.id
-                ? "text-emerald-400 border-emerald-400"
-                : "text-gray-400 border-transparent hover:text-white"
+              ? "text-emerald-400 border-emerald-400"
+              : "text-gray-400 border-transparent hover:text-white"
               } `}
           >
             {tab.label}
@@ -189,6 +191,11 @@ export default function ConfiguracionPage() {
 
         {activeTab === "datos" && (
           <DataTab userId={userId} />
+        )}
+
+        {/* --- TEAM TAB --- */}
+        {activeTab === "equipo" && (
+          <TeamTab />
         )}
       </div>
     </div>

@@ -4,16 +4,15 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import Sidebar from "../components/layout/Sidebar";
 import TopBar from "../components/layout/TopBar";
-import CommandPalette from "../components/ui/CommandPalette";
+import { OnboardingProvider } from "@/app/providers/OnboardingProvider";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // Estados Globales de UI
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [commandOpen, setCommandOpen] = useState(false);
 
-  // Usuario
+  // Usuario logic ...
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("Usuario");
   const [userInitials, setUserInitials] = useState("U");
@@ -39,12 +38,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const name = meta.full_name || meta.name || session.user.email?.split("@")[0] || "Usuario";
 
       setUserName(name);
-      setAvatarUrl(meta.avatar_url || null);
+
       setUserInitials(makeInitials(name));
 
-      // Cargar color
-      const { data: perfil } = await supabase.from("profiles").select("color_tema").eq("id", session.user.id).single();
+      // Cargar color y avatar actualizado
+      const { data: perfil } = await supabase.from("profiles").select("color_tema, avatar_url").eq("id", session.user.id).single();
       const colorFinal = perfil?.color_tema || "#0F1115";
+      // Prioritize profile table avatar, fallback to metadata
+      setAvatarUrl(perfil?.avatar_url || meta.avatar_url || null);
+
       document.documentElement.style.setProperty('--sys-bg', colorFinal);
     };
     loadUser();
@@ -56,47 +58,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('change-theme', handleThemeChange);
   }, [router]);
 
-  // Manejo de atajo Ctrl+K para Command Palette
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setCommandOpen((open) => !open);
-      }
-    };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
-
   return (
-    // Fondo controlado por variable CSS
-    <div className="flex h-screen text-white font-sans overflow-hidden transition-colors duration-500"
-      style={{ backgroundColor: 'var(--sys-bg, #0F1115)' }}>
+    <OnboardingProvider>
+      {/* Fondo controlado por variable CSS */}
+      <div className="flex h-screen text-white font-sans overflow-hidden transition-colors duration-500"
+        style={{ backgroundColor: 'var(--sys-bg, #0F1115)' }}>
 
-      <Sidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        planUsuario={planUsuario}
-      />
-
-      {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm"></div>}
-
-      <main className="flex-1 flex flex-col min-w-0 bg-white/[0.02]">
-        <TopBar
+        <Sidebar
+          mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
-          userName={userName}
-          userEmail={userEmail}
-          avatarUrl={avatarUrl}
-          userInitials={userInitials}
-          onOpenCommand={() => setCommandOpen(true)}
+          planUsuario={planUsuario}
         />
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative scroll-smooth">
-          {children}
-        </div>
-      </main>
+        {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm"></div>}
 
-      <CommandPalette open={commandOpen} setOpen={setCommandOpen} />
-    </div>
+        <main className="flex-1 flex flex-col min-w-0 bg-white/[0.02]">
+          <TopBar
+            setMobileMenuOpen={setMobileMenuOpen}
+            userName={userName}
+            userEmail={userEmail}
+            avatarUrl={avatarUrl}
+            userInitials={userInitials}
+          />
+
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 relative scroll-smooth">
+            {children}
+          </div>
+        </main>
+      </div>
+    </OnboardingProvider>
   );
 }

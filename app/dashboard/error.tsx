@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { ExclamationTriangleIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { Button } from "../components/ui/Button";
 
 export default function Error({
     error,
@@ -36,13 +37,14 @@ export default function Error({
                     )}
                 </div>
 
-                <button
+                <Button
                     onClick={() => reset()}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg hover:shadow-indigo-500/20"
+                    variant="primary"
+                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 border-transparent shadow-indigo-500/20"
                 >
                     <ArrowPathIcon className="w-5 h-5" />
                     Reintentar
-                </button>
+                </Button>
             </div>
         </div>
     );

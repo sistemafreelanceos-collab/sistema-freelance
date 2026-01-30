@@ -174,7 +174,7 @@ export default function CalendarioPage() {
             </div>
 
             <div className="w-full lg:w-[350px] bg-[#121418] border-l border-white/10 flex flex-col h-full overflow-y-auto custom-scrollbar">
-                <div className="px-6 pt-6"><DailyCapacity eventos={eventosVisibles} fechaSeleccionada={eventoSeleccionado ? eventoSeleccionado.start : date} /></div>
+                <div id="tour-calendar-capacity" className="px-6 pt-6"><DailyCapacity eventos={eventosVisibles} fechaSeleccionada={eventoSeleccionado ? eventoSeleccionado.start : date} /></div>
                 <NotesBoard postIts={postIts} onAddClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: "", hora: "", categoria: "", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('postit'); setEventoAEditar(null); setModalAbierto(true); }} onDeleteNote={(id) => handleBorrar(id, 'notas_calendario')} onEdit={handleEditarNota} />
                 <div className="px-6 pb-6"><IncomingPayments proyectos={proyectosRaw} /></div>
             </div>

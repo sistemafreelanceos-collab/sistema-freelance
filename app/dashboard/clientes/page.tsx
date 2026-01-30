@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useClientes } from "../../hooks/useClientes";
 import { Cliente, Proyecto } from "../../../types"; // Centralized Types
 import TarjetaCliente from "./Components/TarjetaCliente";
@@ -11,8 +11,17 @@ import ModalDetalleProyecto from "./Components/ModalDetalleProyecto";
 import ModalEditarProyecto from "./Components/ModalEditarProyecto";
 import ModalDetalleCliente from "./Components/ModalDetalleCliente";
 import SkeletonGrid from "../components/SkeletonGrid";
+import { Button } from "@/app/components/ui/Button";
+
+import { useOnboarding } from "@/app/providers/OnboardingProvider";
 
 export default function ClientesPage() {
+  const { startModuleTour } = useOnboarding();
+
+  useEffect(() => {
+    startModuleTour('clientes');
+  }, []);
+
   // --- CUSTOM HOOK (Lógica de Negocio) ---
   const {
     loading,
@@ -79,21 +88,23 @@ export default function ClientesPage() {
     <div className="max-w-7xl mx-auto pb-20 p-6">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+      <div id="tour-clients-header" className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">Cartera de Clientes</h1>
           <p className="text-gray-400 text-sm">Portafolio de negocios y gestión de entregables.</p>
         </div>
-        <button
+        <Button
           onClick={() => setModalClienteOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition transform hover:scale-105"
+          variant="primary"
+          size="lg"
+          className="rounded-xl shadow-lg hover:scale-105 font-bold"
         >
           + Nuevo Cliente
-        </button>
+        </Button>
       </div>
 
       {/* Buscador */}
-      <div className="mb-6">
+      <div id="tour-clients-search" className="mb-6">
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}

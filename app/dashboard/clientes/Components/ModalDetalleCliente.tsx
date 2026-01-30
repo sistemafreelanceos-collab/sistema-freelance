@@ -1,8 +1,18 @@
-"use client";
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment, useState } from "react";
-import { XMarkIcon, BriefcaseIcon, BanknotesIcon, InformationCircleIcon } from "@heroicons/react/24/solid";
+import { Fragment, useState, useEffect } from "react";
+import { XMarkIcon, BriefcaseIcon, BanknotesIcon, InformationCircleIcon, DocumentTextIcon, PlusIcon } from "@heroicons/react/24/solid";
 import { Cliente, Proyecto } from "../../../../types";
+import { supabase } from "@/lib/supabaseClient";
+import Editor from "../../../components/wiki/Editor";
+import { toast } from "sonner";
+import { useWorkspace } from "@/app/providers/WorkspaceProvider";
+
+interface Doc {
+    id: string;
+    title: string;
+    content: any;
+    updated_at: string;
+}
 
 interface Props {
     isOpen: boolean;
@@ -11,7 +21,101 @@ interface Props {
 }
 
 export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props) {
-    const [tab, setTab] = useState<'proyectos' | 'pagos' | 'info'>('proyectos');
+    const [tab, setTab] = useState<'proyectos' | 'pagos' | 'info' | 'docs'>('proyectos');
+    const { currentWorkspace } = useWorkspace();
+
+    // Docs State
+    const [docs, setDocs] = useState<Doc[]>([]);
+    const [selectedDoc, setSelectedDoc] = useState<Doc | null>(null);
+    const [loadingDocs, setLoadingDocs] = useState(false);
+    const [savingDoc, setSavingDoc] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && cliente) {
+            setTab('proyectos');
+            setSelectedDoc(null);
+            loadDocs();
+        }
+    }, [isOpen, cliente]);
+
+    const loadDocs = async () => {
+        if (!cliente) return;
+        setLoadingDocs(true);
+        const { data, error } = await supabase
+            .from('docs')
+            .select('*')
+            .eq('client_id', cliente.id)
+            .order('updated_at', { ascending: false });
+
+        if (data) setDocs(data);
+        setLoadingDocs(false);
+    };
+
+    const handleCreateDoc = async () => {
+        if (!currentWorkspace || !cliente) return;
+        const newDoc = {
+            title: "Nueva Nota",
+            content: {},
+            workspace_id: currentWorkspace.id,
+            client_id: cliente.id
+        };
+
+        const { data, error } = await supabase.from('docs').insert(newDoc).select().single();
+        if (data) {
+            setDocs([data, ...docs]);
+            setSelectedDoc(data);
+            toast.success("Documento creado");
+        }
+    };
+
+    const handleUpdateDoc = async (content: any) => {
+        if (!selectedDoc) return;
+        // Auto-save logic could go here (debounce). For now manual or direct update on blur/change?
+        // Let's update local state immediately, saving to DB is debounced normally.
+        // For simplicity in this step, we just update local state and have a "Save" or auto-save effect.
+        // Let's implement a simple auto-save effect or just save on change for V1
+
+        // Actually, let's just update the local object for now, and have a save function.
+        // But better: Update DB on content change (debounced 1s would be best, but simple update for now)
+        // Let's rely on a explicit "Guardar" or auto-save.
+        // Tiptap onChange fires often.
+    };
+
+    // Auto-save debounce effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (selectedDoc && savingDoc) {
+                await supabase.from('docs').update({
+                    content: selectedDoc.content,
+                    title: selectedDoc.title,
+                    updated_at: new Date().toISOString()
+                }).eq('id', selectedDoc.id);
+                setSavingDoc(false);
+            }
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [selectedDoc, savingDoc]);
+
+    const updateLocalDocContent = (content: any) => {
+        if (!selectedDoc) return;
+        setSelectedDoc({ ...selectedDoc, content });
+        setSavingDoc(true);
+    };
+
+    const updateLocalDocTitle = (title: string) => {
+        if (!selectedDoc) return;
+        setSelectedDoc({ ...selectedDoc, title });
+        setSavingDoc(true);
+    };
+
+    const handleDeleteDoc = async (id: string) => {
+        const { error } = await supabase.from('docs').delete().eq('id', id);
+        if (!error) {
+            setDocs(docs.filter(d => d.id !== id));
+            if (selectedDoc?.id === id) setSelectedDoc(null);
+            toast.success("Nota eliminada");
+        }
+    };
 
     if (!cliente) return null;
 
@@ -81,7 +185,7 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
-                            <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-[#0D1117] border border-white/10 p-6 text-left align-middle shadow-xl transition-all">
+                            <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-[#0D1117] border border-white/10 p-6 text-left align-middle shadow-xl transition-all min-h-[600px] flex flex-col">
 
                                 {/* Header */}
                                 <div className="flex justify-between items-start mb-6">
@@ -125,13 +229,16 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
                                     <button onClick={() => setTab('pagos')} className={`px-4 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${tab === 'pagos' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
                                         <BanknotesIcon className="w-4 h-4" /> Historial de Pagos
                                     </button>
+                                    <button onClick={() => setTab('docs')} className={`px-4 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${tab === 'docs' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
+                                        <DocumentTextIcon className="w-4 h-4" /> Docs / Wiki
+                                    </button>
                                     <button onClick={() => setTab('info')} className={`px-4 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${tab === 'info' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
                                         <InformationCircleIcon className="w-4 h-4" /> Info Cliente
                                     </button>
                                 </div>
 
                                 {/* Content */}
-                                <div className="min-h-[300px] max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
 
                                     {tab === 'proyectos' && (
                                         <div className="space-y-3">
@@ -194,8 +301,69 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
                                         </div>
                                     )}
 
+                                    {tab === 'docs' && (
+                                        <div className="h-full flex gap-4 min-h-[400px]">
+                                            {/* Sidebar List */}
+                                            <div className="w-1/3 border-r border-white/10 pr-4 flex flex-col">
+                                                <button onClick={handleCreateDoc} className="w-full mb-4 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition">
+                                                    <PlusIcon className="w-4 h-4" /> Nueva Nota
+                                                </button>
+
+                                                <div className="flex-1 overflow-y-auto space-y-2">
+                                                    {loadingDocs ? (
+                                                        <p className="text-gray-500 text-xs text-center py-4">Cargando...</p>
+                                                    ) : docs.length === 0 ? (
+                                                        <p className="text-gray-500 text-xs text-center py-4">No hay notas.</p>
+                                                    ) : (
+                                                        docs.map(doc => (
+                                                            <div key={doc.id}
+                                                                onClick={() => setSelectedDoc(doc)}
+                                                                className={`p-3 rounded-xl border cursor-pointer transition group relative ${selectedDoc?.id === doc.id ? 'bg-purple-500/10 border-purple-500/50' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}>
+                                                                <p className={`text-sm font-medium truncate ${selectedDoc?.id === doc.id ? 'text-white' : 'text-gray-300'}`}>{doc.title || "Sin Título"}</p>
+                                                                <p className="text-[10px] text-gray-500 mt-1">{new Date(doc.updated_at).toLocaleDateString()}</p>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc.id); }} className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400 transition">
+                                                                    <XMarkIcon className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Editor Area */}
+                                            <div className="flex-1 flex flex-col">
+                                                {selectedDoc ? (
+                                                    <>
+                                                        <input
+                                                            type="text"
+                                                            value={selectedDoc.title}
+                                                            onChange={(e) => updateLocalDocTitle(e.target.value)}
+                                                            className="bg-transparent border-none text-xl font-bold text-white focus:outline-none mb-4 w-full placeholder-gray-600"
+                                                            placeholder="Título del documento..."
+                                                        />
+                                                        <div className="flex-1 overflow-y-auto">
+                                                            <Editor
+                                                                content={selectedDoc.content}
+                                                                onChange={updateLocalDocContent}
+                                                            />
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-600 mt-2 text-right">
+                                                            {savingDoc ? "Guardando..." : "Guardado"}
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <div className="flex-1 flex items-center justify-center text-gray-500 flex-col gap-2">
+                                                        <DocumentTextIcon className="w-12 h-12 opacity-20" />
+                                                        <p>Selecciona o crea una nota</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {tab === 'info' && (
                                         <div className="space-y-6">
+
                                             <div className="grid grid-cols-2 gap-6">
                                                 <div>
                                                     <label className="text-xs text-gray-500 uppercase font-bold block mb-1">Email</label>

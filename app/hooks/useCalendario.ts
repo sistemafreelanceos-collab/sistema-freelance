@@ -5,22 +5,27 @@ import { EventoCalendario, PostIt, TipoNota } from "../../types";
 import { toast } from "sonner";
 import moment from "moment";
 
+import { useWorkspace } from "../providers/WorkspaceProvider";
+
 export function useCalendario() {
     const queryClient = useQueryClient();
+    const { currentWorkspace } = useWorkspace();
 
     // 1. QUERY: Eventos Local + DB
     const { data, isLoading } = useQuery({
-        queryKey: ['calendario'],
+        queryKey: ['calendario', currentWorkspace?.id],
         queryFn: async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("No session");
             const uid = session.user.id;
 
+            if (!currentWorkspace) return { localEvents: [], postIts: [], proyectosRaw: [], proyectosList: [] };
+
             const [tareas, gastos, proyectos, notas] = await Promise.all([
-                supabase.from("tareas").select("*, proyectos(nombre)").eq("owner_id", uid),
-                supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
-                supabase.from("proyectos").select("id, nombre, monto, moneda, fecha_inicio, fecha_fin, estado, cliente_id, clientes(nombre, proximo_pago, monto, moneda, frecuencia_pago), pagos_cliente(monto), tiempo_acumulado").eq("owner_id", uid),
-                supabase.from("notas_calendario").select("*").eq("owner_id", uid)
+                supabase.from("tareas").select("*, proyectos(nombre)").eq("workspace_id", currentWorkspace.id),
+                supabase.from("gastos_fijos").select("*").eq("workspace_id", currentWorkspace.id).eq("activo", true),
+                supabase.from("proyectos").select("id, nombre, monto, moneda, fecha_inicio, fecha_fin, estado, cliente_id, clientes(nombre, proximo_pago, monto, moneda, frecuencia_pago), pagos_cliente(monto), tiempo_acumulado").eq("workspace_id", currentWorkspace.id),
+                supabase.from("notas_calendario").select("*").eq("workspace_id", currentWorkspace.id)
             ]);
 
             const lista: EventoCalendario[] = [];
@@ -139,7 +144,17 @@ export function useCalendario() {
     const guardarTareaMutation = useMutation({
         mutationFn: async ({ formulario, recurrente }: { formulario: any, recurrente: boolean }) => {
             const { data: { session } } = await supabase.auth.getSession();
-            const insertData: any = { owner_id: session?.user.id, titulo: formulario.titulo, descripcion: formulario.descripcion, fecha: formulario.fecha, hora: formulario.hora, categoria: formulario.categoria, proyecto_id: formulario.proyectoId || null, completada: false };
+            const insertData: any = {
+                owner_id: session?.user.id,
+                workspace_id: currentWorkspace?.id,
+                titulo: formulario.titulo,
+                descripcion: formulario.descripcion,
+                fecha: formulario.fecha,
+                hora: formulario.hora,
+                categoria: formulario.categoria,
+                proyecto_id: formulario.proyectoId || null,
+                completada: false
+            };
 
             if (recurrente) {
                 const promesas = [];
@@ -174,7 +189,13 @@ export function useCalendario() {
     const guardarNotaMutation = useMutation({
         mutationFn: async ({ texto, color }: { texto: string, color: TipoNota }) => {
             const { data: { session } } = await supabase.auth.getSession();
-            await supabase.from("notas_calendario").insert({ owner_id: session?.user.id, fecha: new Date().toISOString(), texto, color });
+            await supabase.from("notas_calendario").insert({
+                owner_id: session?.user.id,
+                workspace_id: currentWorkspace?.id,
+                fecha: new Date().toISOString(),
+                texto,
+                color
+            });
         },
         onSuccess: () => {
             toast.success("Nota creada");

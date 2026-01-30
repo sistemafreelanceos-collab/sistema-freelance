@@ -249,3 +249,23 @@ export type Notification = {
     read: boolean;
     link: string | null;
 };
+
+// --- WORKSPACE TYPES ---
+export type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+export type Workspace = {
+    id: string;
+    name: string;
+    slug: string | null;
+    logo_url: string | null;
+    owner_id: string;
+    created_at: string;
+};
+
+export type WorkspaceMember = {
+    id: string;
+    workspace_id: string;
+    user_id: string;
+    role: WorkspaceRole;
+    joined_at: string;
+};

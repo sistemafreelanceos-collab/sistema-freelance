@@ -3,23 +3,27 @@ import { supabase } from "../../lib/supabaseClient";
 import { Movimiento, GastoFijo, Presupuesto, ConfigFinanzas, Cuenta } from "../../types";
 import { toast } from "sonner";
 
+import { useWorkspace } from "../providers/WorkspaceProvider";
+
 export function useFinanzas() {
     const queryClient = useQueryClient();
+    const { currentWorkspace } = useWorkspace();
 
     // 1. QUERY PRINCIPAL (Carga todo en paralelo y devuelve un objeto unificado)
     const { data, isLoading, error } = useQuery({
-        queryKey: ['finanzas'],
+        queryKey: ['finanzas', currentWorkspace?.id],
         queryFn: async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("No session");
             const uid = session.user.id;
+            if (!currentWorkspace) return { movimientos: [], gastosFijos: [], presupuestos: [], cuentas: [], config: { porcentaje_ahorro: 10, meta_moneda: "USD" } };
 
             const [movs, fijos, presus, conf, ctas, perfil] = await Promise.all([
-                supabase.from("movimientos").select("*").eq("owner_id", uid).limit(2000),
-                supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
-                supabase.from("presupuestos").select("*").eq("owner_id", uid),
-                supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(),
-                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid),
+                supabase.from("movimientos").select("*").eq("workspace_id", currentWorkspace.id).limit(2000),
+                supabase.from("gastos_fijos").select("*").eq("workspace_id", currentWorkspace.id).eq("activo", true),
+                supabase.from("presupuestos").select("*").eq("workspace_id", currentWorkspace.id),
+                supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(), // Config personal por ahora? O workspace? Dejemos personal.
+                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid), // Cuentas siguen siendo personales por ahora
                 supabase.from("profiles").select("meta_moneda").eq("id", uid).single()
             ]);
 
@@ -58,8 +62,11 @@ export function useFinanzas() {
     const guardarMovimientoMutation = useMutation({
         mutationFn: async ({ data, id }: { data: Partial<Movimiento>, id?: string }) => {
             const { data: { session } } = await supabase.auth.getSession();
-            if (id) await supabase.from("movimientos").update(data).eq("id", id);
-            else await supabase.from("movimientos").insert({ owner_id: session?.user.id, ...data });
+            // @ts-ignore
+            const datosFinales = { ...data, workspace_id: currentWorkspace?.id };
+
+            if (id) await supabase.from("movimientos").update(datosFinales).eq("id", id);
+            else await supabase.from("movimientos").insert({ owner_id: session?.user.id, ...datosFinales });
         },
         onSuccess: (_, variables) => {
             toast.success(variables.id ? "Movimiento actualizado" : "Movimiento registrado");
@@ -71,8 +78,11 @@ export function useFinanzas() {
     const guardarPresupuestoMutation = useMutation({
         mutationFn: async ({ data, id }: { data: Partial<Presupuesto>, id?: string }) => {
             const { data: { session } } = await supabase.auth.getSession();
-            if (id) await supabase.from("presupuestos").update(data).eq("id", id);
-            else await supabase.from("presupuestos").insert({ owner_id: session?.user.id, ...data });
+            // @ts-ignore
+            const datosFinales = { ...data, workspace_id: currentWorkspace?.id };
+
+            if (id) await supabase.from("presupuestos").update(datosFinales).eq("id", id);
+            else await supabase.from("presupuestos").insert({ owner_id: session?.user.id, ...datosFinales });
         },
         onSuccess: () => {
             toast.success("Presupuesto guardado");
@@ -84,6 +94,9 @@ export function useFinanzas() {
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
             const { data: { session } } = await supabase.auth.getSession();
             const { fecha_inicio, ...datosGuardar } = data;
+            // @ts-ignore
+            datosGuardar.workspace_id = currentWorkspace?.id;
+
             if (id) {
                 const { error } = await supabase.from("gastos_fijos").update(datosGuardar).eq("id", id);
                 if (error) throw error;
