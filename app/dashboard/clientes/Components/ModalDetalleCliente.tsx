@@ -86,17 +86,18 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
         if (!selectedDoc || !selectedDoc.title) return;
 
         try {
-            // Usamos select() para verificar que realmente se actualizó la fila (RLS Check)
-            const { error, count } = await supabase.from('docs').update({
+            // Usamos select('id') para que nos devuelva data si se actualizó
+            // Vercel build fix: .select('id', { count: 'exact' }) daba error de argumentos.
+            const { data, error } = await supabase.from('docs').update({
                 content: selectedDoc.content,
                 title: selectedDoc.title,
                 updated_at: new Date().toISOString()
-            }).eq('id', selectedDoc.id).select('id', { count: 'exact' });
+            }).eq('id', selectedDoc.id).select('id');
 
             if (error) throw error;
 
-            // Si count es 0, significa que la RLS bloqueó la actualización o el doc no existe
-            if (count === 0) {
+            // Si data está vacío o null, la RLS bloqueó o no existe
+            if (!data || data.length === 0) {
                 throw new Error("No tienes permisos para editar este documento o fue eliminado.");
             }
 
