@@ -6,6 +6,7 @@ import QueryProvider from "./components/providers/QueryProvider";
 import { UIProvider } from "./providers/UIProvider";
 import { WorkspaceProvider } from "./providers/WorkspaceProvider";
 import CommandPalette from "./components/ui/CommandPalette";
+import MotivationSystem from "./components/MotivationSystem";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,16 +23,17 @@ export default function RootLayout({
 
   return (
     <html lang="es">
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-[#0D1117] text-gray-200 antialiased`}>
         <QueryProvider>
           <UIProvider>
             <WorkspaceProvider>
+              <MotivationSystem />
               {children}
               <CommandPalette />
-              <Toaster richColors position="top-center" />
             </WorkspaceProvider>
           </UIProvider>
         </QueryProvider>
+        <Toaster position="bottom-right" theme="dark" />
       </body>
     </html>
   );

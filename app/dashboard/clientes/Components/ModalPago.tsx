@@ -4,6 +4,7 @@ import { supabase } from "../../../../lib/supabaseClient";
 import { Cliente, Cuenta, Moneda, Proyecto } from "../../../../types";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { useWorkspace } from "@/app/providers/WorkspaceProvider";
 
 interface Props {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas, userId, perfilUsuario, onPagoRegistrado }: Props) {
+    const { currentWorkspace } = useWorkspace();
     const [loading, setLoading] = useState(false);
     const [archivo, setArchivo] = useState<File | null>(null);
 
@@ -117,6 +119,7 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
             // 1. Registrar Pago (El Trigger de SQL se encargará de crear el movimiento en Finanzas automáticamente)
             const { data: pagoRow, error } = await supabase.from("pagos_cliente").insert({
                 owner_id: userId,
+                workspace_id: currentWorkspace?.id, // CRITICAL FIX: Add workspace context
                 cliente_id: cliente.id,
                 proyecto_id: proyecto?.id || null,
                 cuenta_id: form.cuenta_id,

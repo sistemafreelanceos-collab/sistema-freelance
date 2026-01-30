@@ -16,6 +16,13 @@ type AlertaPago = {
   dias_diferencia: number;
 };
 
+type CuentaConSaldo = {
+  id: string;
+  nombre: string;
+  saldo: number;
+  moneda: string;
+};
+
 // --- HELPER DE FECHA ---
 function formatFechaLatino(fechaISO: string | null | undefined) {
   if (!fechaISO) return "—";
@@ -49,10 +56,12 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState("");
 
   // Métricas
-  const [saldosPorMoneda, setSaldosPorMoneda] = useState<Record<string, number>>({});
   const [ingresosMesPorMoneda, setIngresosMesPorMoneda] = useState<Record<string, number>>({});
 
+  const [cuentasConSaldo, setCuentasConSaldo] = useState<CuentaConSaldo[]>([]);
   const [clientesActivos, setClientesActivos] = useState(0);
+  const [totalProyectos, setTotalProyectos] = useState(0);
+
   const [ultimosMovimientos, setUltimosMovimientos] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<AlertaPago[]>([]);
 
@@ -74,14 +83,6 @@ export default function DashboardPage() {
 
       const { data: clientesPendientes } = await supabase
         .from("clientes")
-        // Use workspace_id if available context, but for dashboard logic often filtered by RLS or owner_id.
-        // Assuming RLS handles visibility or owner_id is sufficient for now.
-        // Ideally we should filter by currentWorkspace.id, but let's stick to existing logic for now to not break global dashboard.
-        // However, user requested SaaS isolation. existing logic uses owner_id.
-        // If we want workspace isolation, we should query by workspace_id if table has it.
-        // 'clientes' table DOES have workspace_id now due to migration.
-        // For now, I will keep existing logic to ensure data loads, assuming RLS does the job or we migrate fully later.
-        // Actually, let's keep it simple as a UI update task first.
         .select("id, nombre, proximo_pago, monto, moneda")
         .eq("owner_id", userId)
         .eq("estado", "activo")
@@ -112,42 +113,60 @@ export default function DashboardPage() {
         setAlertas(nuevasAlertas.sort((a, b) => (a.tipo === 'vencido' ? -1 : 1)));
       }
 
-      // 3. FINANZAS (Movimientos)
+      // 3. FINANZAS Y CUENTAS
+      // Obtenemos cuentas primero
+      const { data: cuentasData } = await supabase.from("cuentas").select("id, nombre, moneda").eq("owner_id", userId);
       const { data: movs } = await supabase
         .from("movimientos")
-        .select("monto, tipo, fecha, moneda")
+        .select("monto, tipo, fecha, moneda, cuenta_id")
         .eq("owner_id", userId);
 
       if (movs) {
-        const saldosTemp: Record<string, number> = {};
         const ingresosMesTemp: Record<string, number> = {};
         const mesActual = new Date().getMonth();
         const anioActual = new Date().getFullYear();
 
+        // Calcular Saldos por Cuenta
+        const saldosTemp: Record<string, number> = {}; // cuenta_id -> saldo
+
         movs.forEach(m => {
-          const moneda = m.moneda || 'USD';
-          if (!saldosTemp[moneda]) saldosTemp[moneda] = 0;
-          if (!ingresosMesTemp[moneda]) ingresosMesTemp[moneda] = 0;
-
-          if (m.tipo === 'ingreso') saldosTemp[moneda] += m.monto;
-          else saldosTemp[moneda] -= m.monto;
-
+          // Ingresos del mes
           const partes = m.fecha.split('-');
           const fMov = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+          const moneda = m.moneda || 'USD'; // Fallback por si acaso
 
           if (m.tipo === 'ingreso' && fMov.getMonth() === mesActual && fMov.getFullYear() === anioActual) {
-            ingresosMesTemp[moneda] += m.monto;
+            ingresosMesTemp[moneda] = (ingresosMesTemp[moneda] || 0) + m.monto;
+          }
+
+          // Acumular saldo por cuenta
+          if (m.cuenta_id) {
+            if (saldosTemp[m.cuenta_id] === undefined) saldosTemp[m.cuenta_id] = 0;
+            if (m.tipo === 'ingreso') saldosTemp[m.cuenta_id] += m.monto;
+            else saldosTemp[m.cuenta_id] -= m.monto;
           }
         });
 
-        setSaldosPorMoneda(saldosTemp);
+        // Construir lista de cuentas con saldo
+        const cuentasList: CuentaConSaldo[] = (cuentasData || []).map(c => ({
+          id: c.id,
+          nombre: c.nombre,
+          moneda: c.moneda,
+          saldo: saldosTemp[c.id] || 0
+        })).filter(c => c.saldo !== 0); // Ocultar saldos en 0
+
+        setCuentasConSaldo(cuentasList);
         setIngresosMesPorMoneda(ingresosMesTemp);
         setUltimosMovimientos(movs.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 3));
       }
 
-      // 4. CLIENTES ACTIVOS
-      const { count } = await supabase.from("clientes").select("*", { count: 'exact', head: true }).eq("owner_id", userId).eq("estado", "activo");
-      setClientesActivos(count || 0);
+      // 4. CLIENTES Y PROYECTOS ACTIVOS
+      const { count: countClientes } = await supabase.from("clientes").select("*", { count: 'exact', head: true }).eq("owner_id", userId).eq("estado", "activo");
+      // Contamos como activos todo lo que no esté finalizado
+      const { count: countProyectos } = await supabase.from("proyectos").select("*", { count: 'exact', head: true }).eq("owner_id", userId).neq("estado", "finalizado");
+
+      setClientesActivos(countClientes || 0);
+      setTotalProyectos(countProyectos || 0);
 
       setLoading(false);
     };
@@ -204,15 +223,39 @@ export default function DashboardPage() {
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl -mr-6 -mt-6"></div>
           <div>
             <p className="text-xs text-emerald-300 uppercase font-bold mb-3">Saldo Global</p>
-            <div className="space-y-2">
-              {Object.keys(saldosPorMoneda).length === 0 ? (<p className="text-3xl font-mono font-bold text-white">$ 0</p>) : (Object.entries(saldosPorMoneda).map(([moneda, valor]) => (<div key={moneda} className="flex items-baseline justify-between border-b border-emerald-500/10 last:border-0 pb-2 last:pb-0"><div className="flex items-baseline gap-2"><span className="text-2xl font-mono font-bold text-white tracking-tight">$ {valor.toLocaleString()}</span><span className="text-[10px] font-bold text-emerald-400 bg-emerald-900/40 px-1.5 py-0.5 rounded border border-emerald-500/20">{moneda}</span></div></div>)))}
+            <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1 custom-scrollbar">
+              {cuentasConSaldo.length === 0 ? (
+                <p className="text-3xl font-mono font-bold text-white">$ 0</p>
+              ) : (
+                cuentasConSaldo.map((c) => (
+                  <div key={c.id} className="flex items-baseline justify-between border-b border-emerald-500/10 last:border-0 pb-2 last:pb-0">
+                    <span className="text-sm text-gray-300 truncate max-w-[120px]" title={c.nombre}>{c.nombre}</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-mono font-bold text-white tracking-tight">$ {c.saldo.toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-900/40 px-1.5 py-0.5 rounded border border-emerald-500/20">{c.moneda}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
           <div className="mt-4 pt-2 border-t border-white/5"><Link href="/dashboard/cuentas" className="text-xs text-gray-400 hover:text-white underline">Ver mis cuentas →</Link></div>
         </div>
 
         <div className="bg-[#161B22] border border-white/10 p-6 rounded-2xl hover:border-white/20 transition flex flex-col justify-between">
-          <div><p className="text-xs text-blue-300 uppercase font-bold mb-2">Clientes Activos</p><div className="flex items-end gap-2 mb-1"><p className="text-3xl font-bold text-white">{clientesActivos}</p><span className="text-sm text-gray-500 mb-1">proyectos</span></div></div>
+          <div>
+            <p className="text-xs text-blue-300 uppercase font-bold mb-2">Clientes Activos</p>
+            <div className="flex flex-col gap-1 mb-1">
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-white">{clientesActivos}</p>
+                <span className="text-sm text-gray-500">clientes</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg text-gray-400 font-bold">{totalProyectos}</span>
+                <span className="text-xs text-gray-600">proyectos activos</span>
+              </div>
+            </div>
+          </div>
           <Link href="/dashboard/clientes" className="text-xs text-gray-400 hover:text-white underline mt-2">Administrar clientes →</Link>
         </div>
 

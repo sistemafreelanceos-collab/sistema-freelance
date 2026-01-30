@@ -169,6 +169,10 @@ export interface ConfigPerfil {
     nombre_completo?: string; // Mapear a 'nombre'
     email_contacto?: string; // Mapear a 'email'
     ubicacion?: string; // Mapear a 'direccion'
+
+    // Motivación
+    motivation_enabled?: boolean;
+    motivation_frequency?: number;
 }
 
 export interface PlantillaContrato {

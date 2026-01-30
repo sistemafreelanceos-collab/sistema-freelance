@@ -7,7 +7,7 @@ import { toast } from "sonner";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onClienteCreado: (c: Cliente) => void;
+  onClienteCreado: (c: any) => Promise<any>;
   userId: string;
 }
 
@@ -25,26 +25,28 @@ export default function ModalNuevoCliente({ isOpen, onClose, onClienteCreado, us
     if (!form.nombre) return toast.error("El nombre es obligatorio");
     setLoading(true);
 
-    const { data, error } = await supabase.from("clientes").insert({
-      owner_id: userId,
-      nombre: form.nombre,
-      empresa: form.empresa,
-      email: form.email,
-      telefono: form.telefono,
-      nota: form.nota,
-      estado: 'activo',
-      moneda: 'USD',
-      frecuencia_pago: 'unico'
-    }).select().single();
+    try {
+      // Delegamos la creación al hook (que maneja workspace_id y RLS)
+      // Pasamos un objeto parcial que cumple con lo que espera crearCliente
+      await onClienteCreado({
+        owner_id: userId,
+        nombre: form.nombre,
+        empresa: form.empresa,
+        email: form.email,
+        telefono: form.telefono,
+        nota: form.nota,
+        estado: 'activo',
+        moneda: 'USD',
+        frecuencia_pago: 'unico'
+      } as any); // Cast as any or Partial<Cliente> if needed, hooks handles the rest
 
-    setLoading(false);
-
-    if (!error && data) {
-      onClienteCreado(data);
       onClose();
       setForm({ nombre: "", empresa: "", email: "", telefono: "", nota: "" });
-    } else {
-      toast.error("Error al crear: " + error?.message);
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Error al crear: " + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 

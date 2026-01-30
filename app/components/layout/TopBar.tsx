@@ -6,6 +6,7 @@ import { useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { useNotifications } from "@/app/hooks/useNotifications";
 import { useUI } from "@/app/providers/UIProvider";
+import { useQueryClient } from "@tanstack/react-query";
 import {
     MagnifyingGlassIcon,
     PlusIcon,
@@ -35,6 +36,7 @@ export default function TopBar({
     const router = useRouter();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const { openCommand } = useUI();
+    const queryClient = useQueryClient();
 
     const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false);
     const [quickActionsOpen, setQuickActionsOpen] = useState(false);
@@ -42,7 +44,22 @@ export default function TopBar({
 
     const handleLogout = async () => {
         setMenuPerfilAbierto(false);
+
+        // 1. Limpiar caché de React Query (datos en memoria)
+        queryClient.removeQueries();
+        queryClient.clear();
+
+        // 2. Limpiar LocalStorage crítico (datos persistentes de sesión/workspace)
+        localStorage.removeItem("onyx_workspace_id");
+        localStorage.removeItem("has_seen_tour_finanzas");
+        localStorage.removeItem("has_seen_tour_clientes");
+        localStorage.removeItem("has_seen_tour_calendario");
+        // No borramos 'freelanceOS_email' si el usuario eligió "Recordar" en Login
+
+        // 3. Cerrar sesión en Supabase
         await supabase.auth.signOut();
+
+        router.refresh(); // Forzar recarga segura
         router.push("/");
     };
 

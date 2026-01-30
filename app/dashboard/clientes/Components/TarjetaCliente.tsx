@@ -142,9 +142,9 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
                   <div className="relative z-10">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className={estaPagado ? "text-emerald-400 font-bold" : "text-gray-400"}>
-                        {estaPagado ? "✅ Al día" : `Abonado: $${pagado.toLocaleString()}`}
+                        {estaPagado ? "✅ Al día" : `Abonado: $${pagado.toLocaleString()} ${p.moneda}`}
                       </span>
-                      <span className="text-white font-mono font-bold">${p.monto.toLocaleString()}</span>
+                      <span className="text-white font-mono font-bold">${p.monto.toLocaleString()} {p.moneda}</span>
                     </div>
                     <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
                       <div className={`h-full transition-all duration-500 ${estaPagado ? "bg-emerald-500" : "bg-yellow-500"}`} style={{ width: `${porcentajePago}%` }}></div>

@@ -10,16 +10,17 @@ interface Props {
   cliente: Cliente | null;
   packs: PackServicio[];
   userId: string;
-  onProyectoCreado: (p: Proyecto) => void;
+  onProyectoCreado: (p: any) => Promise<any>;
 }
 
 // Tipo local para manejar la frecuencia dentro del proyecto
 type FrecuenciaProyecto = "unidad" | "semanal" | "quincenal" | "mensual";
 
 export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, userId, onProyectoCreado }: Props) {
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     nombre: "",
-    monto: 0,
+    monto: "" as number | string, // Permitir string vacío para UX
     moneda: "USD",
     fecha_inicio: "",
     fecha_fin: "",
@@ -59,26 +60,33 @@ export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, us
     if (!cliente || !form.nombre) return toast.error("El nombre es obligatorio");
     if (form.monto <= 0) return toast.error("El monto debe ser mayor a 0");
 
-    const { data, error } = await supabase.from("proyectos").insert({
-      owner_id: userId,
-      cliente_id: cliente.id,
-      nombre: form.nombre,
-      monto: form.monto,
-      moneda: form.moneda,
-      fecha_inicio: form.fecha_inicio || null,
-      fecha_fin: form.fecha_fin || null,
-      frecuencia_pago: form.frecuencia, // Se guarda correctamente en la BD
-      estado: "pendiente",
-      entregables_totales: form.entregables_totales
-    }).select("*, gastos(monto)").single();
+    // Validar monto
+    const montoFinal = Number(form.monto);
+    if (isNaN(montoFinal) || montoFinal <= 0) return toast.error("El monto debe ser válido y mayor a 0");
 
-    if (!error && data) {
-      onProyectoCreado(data);
+    setLoading(true);
+
+    try {
+      // Delegamos la creación al hook (useClientes -> crearProyectoMutation)
+      // El hook se encarga de agregar workspace_id y manejar el insert
+      await onProyectoCreado({
+        cliente_id: cliente.id,
+        nombre: form.nombre,
+        monto: montoFinal,
+        moneda: form.moneda,
+        fecha_inicio: form.fecha_inicio || null,
+        fecha_fin: form.fecha_fin || null,
+        frecuencia_pago: form.frecuencia,
+        estado: "pendiente",
+        entregables_totales: form.entregables_totales,
+        owner_id: userId // Fallback, el hook puede sobreescribirlo o usarlo
+      } as any);
+
       onClose();
       // Reset
       setForm({
         nombre: "",
-        monto: 0,
+        monto: "",
         moneda: "USD",
         fecha_inicio: "",
         fecha_fin: "",
@@ -86,8 +94,11 @@ export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, us
         usar_pack_id: "",
         entregables_totales: 0
       });
-    } else {
-      toast.error("Error al crear: " + error?.message);
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Error al crear: " + (error.message || "Error desconocido"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -147,7 +158,10 @@ export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, us
                 <input
                   type="number"
                   value={form.monto}
-                  onChange={e => setForm({ ...form, monto: Number(e.target.value) })}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setForm({ ...form, monto: val === "" ? "" : Number(val) })
+                  }}
                   className="w-full bg-black/40 border border-white/10 rounded-xl p-3 pl-7 text-white font-mono font-bold outline-none focus:border-emerald-500 transition"
                   placeholder="0.00"
                 />

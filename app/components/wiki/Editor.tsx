@@ -30,6 +30,7 @@ export default function Editor({ content, onChange, editable = true, placeholder
                 class: 'prose prose-invert max-w-none focus:outline-none min-h-[200px]',
             },
         },
+        immediatelyRender: false, // Fix for SSR hydration
     });
 
     useEffect(() => {

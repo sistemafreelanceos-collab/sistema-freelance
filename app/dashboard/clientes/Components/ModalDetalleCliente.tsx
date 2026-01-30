@@ -81,30 +81,66 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
         // Tiptap onChange fires often.
     };
 
+    // --- SAVE LOGIC ---
+    const saveCurrentDoc = async () => {
+        if (!selectedDoc || !selectedDoc.title) return;
+
+        try {
+            // Usamos select() para verificar que realmente se actualizó la fila (RLS Check)
+            const { error, count } = await supabase.from('docs').update({
+                content: selectedDoc.content,
+                title: selectedDoc.title,
+                updated_at: new Date().toISOString()
+            }).eq('id', selectedDoc.id).select('id', { count: 'exact' });
+
+            if (error) throw error;
+
+            // Si count es 0, significa que la RLS bloqueó la actualización o el doc no existe
+            if (count === 0) {
+                throw new Error("No tienes permisos para editar este documento o fue eliminado.");
+            }
+
+            setSavingDoc(false);
+            return true;
+        } catch (error: any) {
+            console.error("Error saving doc:", error);
+            toast.error(error.message || "Error al guardar cambios");
+            return false;
+        }
+    };
+
     // Auto-save debounce effect
     useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (selectedDoc && savingDoc) {
-                await supabase.from('docs').update({
-                    content: selectedDoc.content,
-                    title: selectedDoc.title,
-                    updated_at: new Date().toISOString()
-                }).eq('id', selectedDoc.id);
-                setSavingDoc(false);
-            }
-        }, 1000);
+        if (!savingDoc || !selectedDoc) return;
+
+        const timer = setTimeout(() => {
+            saveCurrentDoc();
+        }, 800); // Reduced to 800ms for better UX
+
         return () => clearTimeout(timer);
     }, [selectedDoc, savingDoc]);
 
+    const handleClose = async () => {
+        if (savingDoc) {
+            toast.loading("Guardando...", { duration: 800 });
+            await saveCurrentDoc();
+        }
+        onClose();
+    };
+
     const updateLocalDocContent = (content: any) => {
         if (!selectedDoc) return;
-        setSelectedDoc({ ...selectedDoc, content });
+        const updatedDoc = { ...selectedDoc, content };
+        setSelectedDoc(updatedDoc);
+        setDocs(docs.map(d => d.id === selectedDoc.id ? updatedDoc : d));
         setSavingDoc(true);
     };
 
     const updateLocalDocTitle = (title: string) => {
         if (!selectedDoc) return;
-        setSelectedDoc({ ...selectedDoc, title });
+        const updatedDoc = { ...selectedDoc, title };
+        setSelectedDoc(updatedDoc);
+        setDocs(docs.map(d => d.id === selectedDoc.id ? updatedDoc : d));
         setSavingDoc(true);
     };
 
@@ -161,7 +197,7 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
-            <Dialog as="div" className="relative z-50" onClose={onClose}>
+            <Dialog as="div" className="relative z-50" onClose={handleClose}>
                 <Transition.Child
                     as={Fragment}
                     enter="ease-out duration-300"
@@ -200,7 +236,7 @@ export default function ModalDetalleCliente({ isOpen, onClose, cliente }: Props)
                                             <p className="text-emerald-400 font-mono text-sm uppercase tracking-wide">{cliente.empresa || "Cliente Particular"}</p>
                                         </div>
                                     </div>
-                                    <button onClick={onClose} className="p-2 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition">
+                                    <button onClick={handleClose} className="p-2 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition">
                                         <XMarkIcon className="w-6 h-6" />
                                     </button>
                                 </div>
