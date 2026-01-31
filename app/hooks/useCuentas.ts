@@ -67,20 +67,40 @@ export function useCuentas() {
     };
 
     // Funciones básicas (Guardar/Eliminar)
-    const guardarCuenta = async (nombre: string, tipo: string, moneda: string) => {
+    // Funciones básicas (Guardar/Eliminar)
+    const guardarCuenta = async (datos: any, esPrimera: boolean, idEdicion?: string) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const { error } = await supabase.from("cuentas").insert({
-            nombre, tipo, moneda, owner_id: session.user.id
-            // No añadimos workspace_id a la cuenta en sí, porque es un recurso compartido
-        });
+        const payload = {
+            owner_id: session.user.id,
+            nombre: datos.nombre,
+            banco: datos.banco,
+            tipo: datos.tipo,
+            numero: datos.numero,
+            moneda: datos.moneda,
+            is_principal: esPrimera // Si es la primera, la hacemos principal por defecto
+        };
+
+        let error;
+
+        if (idEdicion) {
+            // Actualizar
+            const { error: err } = await supabase.from("cuentas").update(payload).eq("id", idEdicion);
+            error = err;
+        } else {
+            // Crear
+            const { error: err } = await supabase.from("cuentas").insert(payload);
+            error = err;
+        }
 
         if (!error) {
-            toast.success("Cuenta creada");
+            toast.success(idEdicion ? "Cuenta actualizada" : "Cuenta creada");
             cargarCuentasYSaldo();
         } else {
-            toast.error("Error al crear cuenta");
+            console.error(error);
+            toast.error("Error al guardar cuenta");
+            throw error;
         }
     };
 
