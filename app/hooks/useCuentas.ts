@@ -94,6 +94,24 @@ export function useCuentas() {
         }
     };
 
+    const hacerPrincipal = async (id: string) => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // 1. Quitar principal a todas (del usuario)
+        await supabase.from("cuentas").update({ is_principal: false }).eq("owner_id", session.user.id);
+
+        // 2. Asignar nueva principal
+        const { error } = await supabase.from("cuentas").update({ is_principal: true }).eq("id", id);
+
+        if (!error) {
+            toast.success("Cuenta principal actualizada");
+            cargarCuentasYSaldo();
+        } else {
+            toast.error("Error al actualizar");
+        }
+    };
+
     return {
         cuentas,
         loading,
