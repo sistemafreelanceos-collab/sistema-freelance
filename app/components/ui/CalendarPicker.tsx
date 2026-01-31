@@ -44,10 +44,7 @@ export function CalendarPicker({ date, setDate, label = "Fecha" }: CalendarPicke
                             locale={es}
                             showOutsideDays
                             fixedWeeks
-                            components={{
-                                ChevronLeft: () => <ChevronLeftIcon className="w-4 h-4 text-gray-400" />,
-                                ChevronRight: () => <ChevronRightIcon className="w-4 h-4 text-gray-400" />
-                            }}
+
                             classNames={{
                                 months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
                                 month: "space-y-4",
