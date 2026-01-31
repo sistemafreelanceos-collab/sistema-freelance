@@ -117,6 +117,7 @@ export function useCuentas() {
         loading,
         cargarCuentasYSaldo,
         guardarCuenta,
-        eliminarCuenta
+        eliminarCuenta,
+        hacerPrincipal
     };
 }

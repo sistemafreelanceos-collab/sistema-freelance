@@ -134,27 +134,59 @@ export function useCalendario() {
     });
 
     // 2. QUERY GOOGLE (Separada para no bloquear la carga local)
-    const { data: googleData } = useQuery({
+    // 2. QUERY GOOGLE MEJORADA
+    const { data: googleData, error: googleError } = useQuery({
         queryKey: ['calendario-google'],
         queryFn: async () => {
             const { data: { session } } = await supabase.auth.getSession();
             // @ts-ignore
-            let token = session?.provider_token;
+            const token = session?.provider_token;
+
+            // Si no hay token (no se logueó con Google), retornamos vacío sin error
             if (!token) return [];
 
             try {
+                // Calculamos un rango amplio para asegurar que se vean los eventos
+                // (Opcional: Podrías recibir 'viewStart' y 'viewEnd' como props en el hook si quieres optimizar más)
+                const start = moment().subtract(1, 'month').format();
+                const end = moment().add(6, 'months').format();
+
                 const res = await fetch('/api/calendar', {
                     method: 'POST',
-                    body: JSON.stringify({ provider_token: token })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        provider_token: token,
+                        start,
+                        end
+                    })
                 });
-                if (!res.ok) return [];
+
+                if (res.status === 401) {
+                    // Token expirado: Lanzamos error específico para manejarlo en la UI
+                    throw new Error("EXPIRED_TOKEN");
+                }
+
+                if (!res.ok) throw new Error("Error en API Google");
+
                 return await res.json();
-            } catch {
-                return [];
+            } catch (e: any) {
+                if (e.message === "EXPIRED_TOKEN") {
+                    // Opcional: Mostrar toast solo una vez para no spamear
+                    console.warn("Token de Google expirado. Se requiere re-login.");
+                }
+                return []; // Retornamos vacío para no romper el calendario visualmente
             }
         },
-        staleTime: 1000 * 60 * 10 // 10 minutos caché Google
+        // Cachear por 5 minutos, reintentar 1 vez si falla
+        staleTime: 1000 * 60 * 5,
+        retry: 1
     });
+
+    // Efecto para avisar al usuario si el token caducó (Opcional)
+    // Puedes poner esto dentro del componente si prefieres
+    if (googleError && (googleError as Error).message === "EXPIRED_TOKEN") {
+        // toast.error("Tu sesión de Google expiró. Cierra sesión y vuelve a entrar para ver tus eventos.");
+    }
 
     const eventosDB = [...(data?.localEvents || []), ...(googleData || [])];
 
