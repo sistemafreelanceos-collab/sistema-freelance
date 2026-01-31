@@ -16,17 +16,18 @@ interface TimelineEvent {
 }
 
 export default function TimelinePage() {
+    const { currentWorkspace } = useWorkspace();
     const [events, setEvents] = useState<TimelineEvent[]>([]);
     const [loading, setLoading] = useState(true);
 
     const loadEvents = async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user || !currentWorkspace) return;
 
         const { data } = await supabase
             .from("timeline")
             .select("*")
-            .eq("user_id", user.id) // Buscar por dueño, no por workspace (más robusto)
+            .eq("workspace_id", currentWorkspace.id) // Filtrado por Workspace Estricto
             .order("created_at", { ascending: false })
             .limit(50);
 
@@ -41,12 +42,16 @@ export default function TimelinePage() {
         const channel = supabase
             .channel('timeline_updates')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'timeline' }, (payload) => {
-                setEvents(prev => [payload.new as TimelineEvent, ...prev]);
+                const newEvent = payload.new as TimelineEvent;
+                // Filtrar eventos en tiempo real para que coincidan con workspace actual
+                if (currentWorkspace?.id && (payload.new as any).workspace_id === currentWorkspace.id) {
+                    setEvents(prev => [newEvent, ...prev]);
+                }
             })
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [currentWorkspace]);
 
     // Agrupar por fecha
     const groupedEvents = events.reduce((acc, event) => {

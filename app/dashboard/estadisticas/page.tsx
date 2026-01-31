@@ -83,25 +83,65 @@ export default function EstadisticasPage() {
                     </div>
                 </div>
 
-                {/* RIESGO CLIENTES */}
-                <div className="bg-[#161B22] border border-white/10 p-6 rounded-2xl">
-                    <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-white font-bold flex items-center gap-2">
-                            <ExclamationTriangleIcon className={`w-5 h-5 ${clienteDominante ? 'text-red-500 animate-pulse' : 'text-gray-400'}`} /> Riesgo Cartera
-                        </h3>
-                        {clienteDominante ? <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-1 rounded border border-red-500/30 font-bold">⚠️ {clienteDominante.name} &gt; 50%</span> : <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded border border-emerald-500/30">✅ Diversificado</span>}
+                {/* TARJETA: DEPENDENCIA DE CLIENTES (Antiguo Riesgo Cartera) */}
+                <div className="bg-[#161B22] border border-gray-800 p-6 rounded-2xl col-span-1 lg:col-span-1">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className="text-gray-100 font-bold flex items-center gap-2">
+                                🏗️ Solidez del Negocio
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                                ¿Qué tan dependiente eres de un solo cliente?
+                            </p>
+                        </div>
+                        {/* Semáforo Visual */}
+                        <div className={`px-3 py-1 rounded-full text-xs font-bold border ${clienteDominante
+                                ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            }`}>
+                            {clienteDominante ? "⚠️ PELIGRO" : "✅ SANO"}
+                        </div>
                     </div>
-                    <div className="h-40 w-full mt-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={riesgoClientes.slice(0, 4)} margin={{ left: 0 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#9CA3AF', fontSize: 10 }} tickLine={false} axisLine={false} />
-                                <Tooltip contentStyle={{ backgroundColor: '#1C2128', border: 'none' }} itemStyle={{ color: '#fff' }} formatter={(val: number) => `${val.toFixed(1)}%`} />
-                                <Bar dataKey="porcentaje" radius={[0, 4, 4, 0]} barSize={15}>
-                                    {riesgoClientes.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.porcentaje > 50 ? '#EF4444' : COLORS_RISK[index % COLORS_RISK.length]} />)}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+
+                    {/* Mensaje Explicativo Claro */}
+                    <div className="mb-6 p-4 rounded-xl bg-black/20 border border-white/5">
+                        {clienteDominante ? (
+                            <p className="text-sm text-red-300 leading-relaxed">
+                                <strong className="block mb-1 text-red-400">¡Cuidado!</strong>
+                                Si <span className="font-bold underline">{clienteDominante.name}</span> decide irse mañana,
+                                perderías el <span className="font-bold">{clienteDominante.porcentaje.toFixed(0)}%</span> de tus ingresos.
+                                Tu prioridad debe ser buscar nuevos clientes urgente.
+                            </p>
+                        ) : (
+                            <p className="text-sm text-gray-400 leading-relaxed">
+                                <strong className="block mb-1 text-emerald-400">¡Buen trabajo!</strong>
+                                Tienes los huevos en varias canastas. Ningún cliente controla tu futuro financiero.
+                                Si uno se va, tu negocio sobrevive.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Lista de Clientes (Top 4) */}
+                    <div className="space-y-3">
+                        {riesgoClientes.slice(0, 4).map((c, i) => (
+                            <div key={i} className="relative">
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className={`font-bold ${i === 0 && c.porcentaje > 50 ? 'text-red-400' : 'text-gray-300'}`}>
+                                        {c.name}
+                                    </span>
+                                    <span className="text-gray-500">{c.porcentaje.toFixed(1)}% de tus ingresos</span>
+                                </div>
+                                {/* Barra de Progreso */}
+                                <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full ${c.porcentaje > 50 ? 'bg-red-500' :
+                                                c.porcentaje > 25 ? 'bg-yellow-500' : 'bg-emerald-500'
+                                            }`}
+                                        style={{ width: `${c.porcentaje}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

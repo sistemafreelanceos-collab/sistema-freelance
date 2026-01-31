@@ -3,7 +3,10 @@ import { supabase } from "../../lib/supabaseClient";
 import { toast } from "sonner";
 import { ConfigFinanzas } from "../../types";
 
+import { useWorkspace } from "../providers/WorkspaceProvider";
+
 export function useEstadisticas() {
+    const { currentWorkspace } = useWorkspace();
     const [loading, setLoading] = useState(true);
     const [anioFiltro, setAnioFiltro] = useState(new Date().getFullYear());
 
@@ -33,26 +36,32 @@ export function useEstadisticas() {
         const uid = session.user.id;
 
         try {
-            // 1. CARGAR META
+            if (!currentWorkspace) return;
+
+            // 1. CARGAR META (Global por usuario por ahora)
             const { data: config } = await supabase.from("config_finanzas").select("meta_mensual").eq("owner_id", uid).single();
             const meta = config?.meta_mensual || 0;
             setMetaMensual(meta);
 
-            // 2. CARGAR MOVIMIENTOS
+            // 2. CARGAR MOVIMIENTOS (Filtrado por Workspace)
             const startYear = `${anioFiltro}-01-01`;
             const endYear = `${anioFiltro}-12-31`;
-            const { data: movs } = await supabase.from("movimientos").select("*").eq("owner_id", uid).gte("fecha", startYear).lte("fecha", endYear);
+            const { data: movs } = await supabase.from("movimientos").select("*")
+                .eq("workspace_id", currentWorkspace.id)
+                .gte("fecha", startYear).lte("fecha", endYear);
 
             if (movs) {
                 // A. Data Mensual
-                const meses = Array(12).fill(0).map((_, i) => ({ mes: new Date(0, i).toLocaleString('es-ES', { month: 'short' }), ingresos: 0, gastos: 0, utilidad: 0 }));
+                const meses = Array(12).fill(0).map((_, i) => ({ mes: new Date(0, i).toLocaleString('es-ES', { month: 'short' }), ingresos: 0, gastos: 0, utilidad: 0, horas: 0 }));
                 let totalIngresos = 0; let totalGastos = 0;
                 const catGastos: Record<string, number> = {};
 
                 movs.forEach(m => {
-                    const [y, mn] = m.fecha.split('-').map(Number);
-                    const mesIndex = mn - 1;
+                    const d = new Date(m.fecha);
+                    const mn = d.getUTCMonth();
+                    const mesIndex = mn;
                     const monto = Number(m.monto);
+
                     if (m.tipo === 'ingreso') {
                         if (meses[mesIndex]) meses[mesIndex].ingresos += monto;
                         totalIngresos += monto;
@@ -64,76 +73,97 @@ export function useEstadisticas() {
                     }
                 });
 
+                // Cargar Proyectos del Workspace
+                const { data: proyectos } = await supabase.from("proyectos").select("id, cliente_id, clientes(nombre)").eq("workspace_id", currentWorkspace.id);
+                const proyectoIds = proyectos?.map(p => p.id) || [];
+
+                // Cargar Sesiones (Filtradas por Proyectos del Workspace)
+                // Nota: sesiones_focus no tiene workspace_id directo en esquema antiguo, usamos proyectos
+                let sesiones: any[] = [];
+                if (proyectoIds.length > 0) {
+                    const { data: s } = await supabase.from("sesiones_focus")
+                        .select("duracion_minutos, proyecto_id, created_at")
+                        .in("proyecto_id", proyectoIds)
+                        .gte("created_at", startYear).lte("created_at", endYear);
+                    sesiones = s || [];
+                }
+
+                // Mapear Horas a Meses
+                sesiones.forEach(s => {
+                    const d = new Date(s.created_at);
+                    const mesIndex = d.getMonth(); // Local time is fine for grouping
+                    if (meses[mesIndex]) meses[mesIndex].horas += (s.duracion_minutos / 60);
+                });
+
                 meses.forEach(m => m.utilidad = m.ingresos - m.gastos);
+                console.log("Data Mensual Calculada", meses); // Debug
                 setDataMensual(meses);
 
                 const listaCat = Object.entries(catGastos).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
                 setDataCategorias(listaCat);
 
-                const utilidadNeta = totalIngresos - totalGastos;
-                const margen = totalIngresos > 0 ? (utilidadNeta / totalIngresos) * 100 : 0;
-                setKpis({ ingresos: totalIngresos, gastos: totalGastos, utilidad: utilidadNeta, margen });
+                setKpis({
+                    ingresos: totalIngresos,
+                    gastos: totalGastos,
+                    utilidad: totalIngresos - totalGastos,
+                    margen: totalIngresos > 0 ? ((totalIngresos - totalGastos) / totalIngresos) * 100 : 0
+                });
 
-                // B. Ingresos Mes Actual
-                const hoy = new Date(); const mesActual = hoy.getMonth();
-                if (anioFiltro === hoy.getFullYear()) {
-                    const totalMesActual = meses[mesActual].ingresos;
-                    setIngresosMesActual(totalMesActual);
-                    setProgresoMeta(meta > 0 ? Math.min((totalMesActual / meta) * 100, 100) : 0);
-                }
-            }
+                // Ingresos Mes Actual (Dashboard KPI)
+                const hoy = new Date();
+                const mesActual = hoy.getMonth();
+                const totalMesActual = meses[mesActual].ingresos;
+                setIngresosMesActual(totalMesActual);
+                setProgresoMeta(meta > 0 ? Math.min((totalMesActual / meta) * 100, 100) : 0);
 
-            // 3. DATOS CEO
-            const { data: proyectos } = await supabase.from("proyectos").select("id, cliente_id, clientes(nombre)").eq("owner_id", uid);
-
-            // RIESGO
-            const ingresosPorCliente: Record<string, number> = {};
-            let totalIngresosAnio = 0;
-            movs?.forEach(m => {
-                if (m.tipo === 'ingreso') {
-                    totalIngresosAnio += m.monto;
-                    if (m.proyecto_id) {
-                        const proy = proyectos?.find(p => p.id === m.proyecto_id);
-                        const clienteData = proy?.clientes as any;
-                        const clienteNombre = clienteData?.nombre || "Sin Cliente";
-                        ingresosPorCliente[clienteNombre] = (ingresosPorCliente[clienteNombre] || 0) + m.monto;
-                    } else {
-                        ingresosPorCliente["Varios"] = (ingresosPorCliente["Varios"] || 0) + m.monto;
+                // RIESGO CLIENTES (Filtrado por Workspace)
+                const ingresosPorCliente: Record<string, number> = {};
+                let totalIngresosAnio = 0;
+                movs.forEach(m => {
+                    if (m.tipo === 'ingreso') {
+                        totalIngresosAnio += m.monto;
+                        if (m.proyecto_id) {
+                            const proy = proyectos?.find(p => p.id === m.proyecto_id);
+                            const clienteData = proy?.clientes as any;
+                            const clienteNombre = clienteData?.nombre || "Sin Cliente";
+                            ingresosPorCliente[clienteNombre] = (ingresosPorCliente[clienteNombre] || 0) + m.monto;
+                        } else {
+                            ingresosPorCliente["Varios"] = (ingresosPorCliente["Varios"] || 0) + m.monto;
+                        }
                     }
-                }
-            });
+                });
 
-            const dataRiesgo = Object.entries(ingresosPorCliente).map(([name, value]) => ({ name, value, porcentaje: totalIngresosAnio > 0 ? (value / totalIngresosAnio) * 100 : 0 })).sort((a, b) => b.value - a.value);
-            setRiesgoClientes(dataRiesgo);
-            if (dataRiesgo.length > 0 && dataRiesgo[0].porcentaje > 50) setClienteDominante(dataRiesgo[0]);
+                const dataRiesgo = Object.entries(ingresosPorCliente).map(([name, value]) => ({ name, value, porcentaje: totalIngresosAnio > 0 ? (value / totalIngresosAnio) * 100 : 0 })).sort((a, b) => b.value - a.value);
+                setRiesgoClientes(dataRiesgo);
+                if (dataRiesgo.length > 0 && dataRiesgo[0].porcentaje > 50) setClienteDominante(dataRiesgo[0]);
 
-            // VALOR HORA
-            const { data: sesiones } = await supabase.from("sesiones_focus").select("duracion_minutos, proyecto_id").eq("owner_id", uid);
-            const horasPorProyecto: Record<string, number> = {};
-            sesiones?.forEach(s => { if (s.proyecto_id) horasPorProyecto[s.proyecto_id] = (horasPorProyecto[s.proyecto_id] || 0) + (s.duracion_minutos / 60); });
+                // VALOR HORA (Filtrado por Workspace)
+                const horasPorProyecto: Record<string, number> = {};
+                sesiones.forEach(s => { if (s.proyecto_id) horasPorProyecto[s.proyecto_id] = (horasPorProyecto[s.proyecto_id] || 0) + (s.duracion_minutos / 60); });
 
-            const ingresosPorProyecto: Record<string, number> = {};
-            movs?.forEach(m => { if (m.proyecto_id && m.tipo === 'ingreso') ingresosPorProyecto[m.proyecto_id] = (ingresosPorProyecto[m.proyecto_id] || 0) + m.monto; });
+                const ingresosPorProyecto: Record<string, number> = {};
+                movs.forEach(m => { if (m.proyecto_id && m.tipo === 'ingreso') ingresosPorProyecto[m.proyecto_id] = (ingresosPorProyecto[m.proyecto_id] || 0) + m.monto; });
 
-            const tablaValorHora = proyectos?.map(p => {
-                const horas = horasPorProyecto[p.id] || 0;
-                const ingresos = ingresosPorProyecto[p.id] || 0;
-                const clienteData = p.clientes as any;
-                return {
-                    nombre: clienteData?.nombre ? `${clienteData.nombre} - Proyecto` : "Proyecto",
-                    horas: horas, ingresos: ingresos, tasa: horas > 0 ? ingresos / horas : 0
-                };
-            }).filter(p => p.horas > 0 || p.ingresos > 0).sort((a, b) => b.tasa - a.tasa) || [];
+                const tablaValorHora = proyectos?.map(p => {
+                    const horas = horasPorProyecto[p.id] || 0;
+                    const ingresos = ingresosPorProyecto[p.id] || 0;
+                    const clienteData = p.clientes as any;
+                    return {
+                        nombre: clienteData?.nombre ? `${clienteData.nombre} - Proyecto` : "Proyecto",
+                        horas: horas, ingresos: ingresos, tasa: horas > 0 ? ingresos / horas : 0
+                    };
+                }).filter(p => p.horas > 0 || p.ingresos > 0).sort((a, b) => b.tasa - a.tasa) || [];
 
-            setValorHoraReal(tablaValorHora);
-            const totalIngresosProy = tablaValorHora.reduce((acc, curr) => acc + curr.ingresos, 0);
-            const totalHorasProy = tablaValorHora.reduce((acc, curr) => acc + curr.horas, 0);
-            setValorHoraPromedio(totalHorasProy > 0 ? totalIngresosProy / totalHorasProy : 0);
+                setValorHoraReal(tablaValorHora);
+                const totalIngresosProy = tablaValorHora.reduce((acc, curr) => acc + curr.ingresos, 0);
+                const totalHorasProy = tablaValorHora.reduce((acc, curr) => acc + curr.horas, 0);
+                setValorHoraPromedio(totalHorasProy > 0 ? totalIngresosProy / totalHorasProy : 0);
 
-            // TASA CIERRE
-            const { data: clientes } = await supabase.from("clientes").select("estado").eq("owner_id", uid);
-            const totalLeads = clientes?.length || 0; const activos = clientes?.filter(c => c.estado === 'activo').length || 0;
-            setTasaCierre({ total: totalLeads, convertidos: activos, tasa: totalLeads > 0 ? (activos / totalLeads) * 100 : 0 });
+                // TASA CIERRE (Filtrado por Workspace)
+                const { data: clientes } = await supabase.from("clientes").select("estado").eq("workspace_id", currentWorkspace.id);
+                const totalLeads = clientes?.length || 0; const activos = clientes?.filter(c => c.estado === 'activo').length || 0;
+                setTasaCierre({ total: totalLeads, convertidos: activos, tasa: totalLeads > 0 ? (activos / totalLeads) * 100 : 0 });
+            }
 
         } catch (e) {
             console.error(e);

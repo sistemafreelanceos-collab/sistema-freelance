@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useWorkspace } from "../providers/WorkspaceProvider";
+import { toast } from "sonner";
 
 // --- TIPOS ---
 type AlertaPago = {
@@ -33,7 +34,7 @@ function formatFechaLatino(fechaISO: string | null | undefined) {
   return `${dia}-${mes}-${anio}`;
 }
 
-// --- COMPONENTE AUXILIAR (Aquí aislamos useSearchParams para evitar el error) ---
+// --- COMPONENTE AUXILIAR ---
 function DetectorBienvenida({ setModal }: { setModal: (v: boolean) => void }) {
   const searchParams = useSearchParams();
   const esNuevo = searchParams.get("nuevo");
@@ -57,34 +58,36 @@ export default function DashboardPage() {
 
   // Métricas
   const [ingresosMesPorMoneda, setIngresosMesPorMoneda] = useState<Record<string, number>>({});
-
   const [cuentasConSaldo, setCuentasConSaldo] = useState<CuentaConSaldo[]>([]);
   const [clientesActivos, setClientesActivos] = useState(0);
   const [totalProyectos, setTotalProyectos] = useState(0);
-
   const [ultimosMovimientos, setUltimosMovimientos] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<AlertaPago[]>([]);
-
   useEffect(() => {
+    // Si no hay workspace cargado, esperamos
+    if (!currentWorkspace) return;
+
     const init = async () => {
+      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/"); return; }
 
       const userId = session.user.id;
+      const wsId = currentWorkspace.id; // ID DE LA EMPRESA ACTUAL
 
       // 1. NOMBRE USUARIO
       const { data: profile } = await supabase.from("profiles").select("nombre").eq("id", userId).single();
       const nombreReal = profile?.nombre || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "Usuario";
       setUserName(nombreReal);
 
-      // 2. ALERTAS (Vencimientos)
+      // 2. ALERTAS (Clientes de esta empresa)
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
 
       const { data: clientesPendientes } = await supabase
         .from("clientes")
         .select("id, nombre, proximo_pago, monto, moneda")
-        .eq("owner_id", userId)
+        .eq("workspace_id", wsId) // <--- FILTRO POR EMPRESA
         .eq("estado", "activo")
         .not("proximo_pago", "is", null);
 
@@ -94,7 +97,6 @@ export default function DashboardPage() {
           if (!c.proximo_pago) return;
           const partes = c.proximo_pago.split('-');
           const fechaPago = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-
           const diffTime = fechaPago.getTime() - hoy.getTime();
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -114,32 +116,35 @@ export default function DashboardPage() {
       }
 
       // 3. FINANZAS Y CUENTAS
-      // Obtenemos cuentas primero
-      const { data: cuentasData } = await supabase.from("cuentas").select("id, nombre, moneda").eq("owner_id", userId);
+      // A) Las Cuentas son GLOBALES (del usuario), NO de la empresa
+      const { data: cuentasData } = await supabase
+        .from("cuentas")
+        .select("id, nombre, moneda")
+        .eq("owner_id", userId); // <--- SOLO FILTRO POR USUARIO
+
+      // B) Los Movimientos son LOCALES (de esta empresa)
       const { data: movs } = await supabase
         .from("movimientos")
         .select("monto, tipo, fecha, moneda, cuenta_id")
-        .eq("owner_id", userId);
+        .eq("workspace_id", wsId); // <--- SOLO DE ESTA EMPRESA
 
-      if (movs) {
+      if (movs && cuentasData) {
         const ingresosMesTemp: Record<string, number> = {};
         const mesActual = new Date().getMonth();
         const anioActual = new Date().getFullYear();
-
-        // Calcular Saldos por Cuenta
-        const saldosTemp: Record<string, number> = {}; // cuenta_id -> saldo
+        const saldosTemp: Record<string, number> = {};
 
         movs.forEach(m => {
-          // Ingresos del mes
+          // Ingresos del mes actual
           const partes = m.fecha.split('-');
           const fMov = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-          const moneda = m.moneda || 'USD'; // Fallback por si acaso
+          const moneda = m.moneda || 'USD';
 
           if (m.tipo === 'ingreso' && fMov.getMonth() === mesActual && fMov.getFullYear() === anioActual) {
             ingresosMesTemp[moneda] = (ingresosMesTemp[moneda] || 0) + m.monto;
           }
 
-          // Acumular saldo por cuenta
+          // Acumular saldo por cuenta (Solo suma lo de ESTA empresa)
           if (m.cuenta_id) {
             if (saldosTemp[m.cuenta_id] === undefined) saldosTemp[m.cuenta_id] = 0;
             if (m.tipo === 'ingreso') saldosTemp[m.cuenta_id] += m.monto;
@@ -147,23 +152,31 @@ export default function DashboardPage() {
           }
         });
 
-        // Construir lista de cuentas con saldo
-        const cuentasList: CuentaConSaldo[] = (cuentasData || []).map(c => ({
+        // Mapear cuentas y asignarles SU saldo en ESTA empresa
+        const cuentasList: CuentaConSaldo[] = cuentasData.map(c => ({
           id: c.id,
           nombre: c.nombre,
           moneda: c.moneda,
           saldo: saldosTemp[c.id] || 0
-        })).filter(c => c.saldo !== 0); // Ocultar saldos en 0
+        })).filter(c => c.saldo !== 0); // Ocultar si en esta empresa no tiene saldo
 
         setCuentasConSaldo(cuentasList);
         setIngresosMesPorMoneda(ingresosMesTemp);
-        setUltimosMovimientos(movs.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 3));
+        setUltimosMovimientos(movs.sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 3));
       }
 
       // 4. CLIENTES Y PROYECTOS ACTIVOS
-      const { count: countClientes } = await supabase.from("clientes").select("*", { count: 'exact', head: true }).eq("owner_id", userId).eq("estado", "activo");
-      // Contamos como activos todo lo que no esté finalizado
-      const { count: countProyectos } = await supabase.from("proyectos").select("*", { count: 'exact', head: true }).eq("owner_id", userId).neq("estado", "finalizado");
+      const { count: countClientes } = await supabase
+        .from("clientes")
+        .select("*", { count: 'exact', head: true })
+        .eq("workspace_id", wsId)
+        .eq("estado", "activo");
+
+      const { count: countProyectos } = await supabase
+        .from("proyectos")
+        .select("*", { count: 'exact', head: true })
+        .eq("workspace_id", wsId)
+        .neq("estado", "finalizado");
 
       setClientesActivos(countClientes || 0);
       setTotalProyectos(countProyectos || 0);
@@ -172,14 +185,12 @@ export default function DashboardPage() {
     };
 
     init();
-  }, [router]);
+  }, [router, currentWorkspace]); // Se recarga cuando cambias de empresa
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Cargando tablero...</div>;
 
   return (
     <div className="max-w-6xl mx-auto pb-10">
-
-      {/* --- FIX: Envolvemos el detector en Suspense --- */}
       <Suspense fallback={null}>
         <DetectorBienvenida setModal={setModalBienvenida} />
       </Suspense>
@@ -265,7 +276,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* SECCIÓN SECUNDARIA */}
+      {/* SECCIÓN SECUNDARIA (Acciones y Actividad) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-[#161B22] border border-white/10 rounded-2xl p-6">
           <h3 className="font-bold text-white mb-4">Acciones Rápidas</h3>
@@ -297,7 +308,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -2,8 +2,11 @@
 import { useState, useEffect } from "react";
 import { CheckCircleIcon, PlayIcon, TrashIcon, StopIcon, ClockIcon, PencilIcon } from "@heroicons/react/24/solid";
 import { EventoCalendario, CATEGORIAS_COLORS, POSTIT_STYLES, TipoNota } from '../../../../types';
+import { CalendarPicker } from "../../../components/ui/CalendarPicker";
+import { TimePicker } from "../../../components/ui/TimePicker";
+import moment from "moment";
 
-// --- MODAL CREAR (Se mantiene igual) ---
+// --- MODAL CREAR ---
 interface PropsCrear {
     isOpen: boolean; onClose: () => void; onSave: () => void;
     modalTipo: 'tarea' | 'postit'; setModalTipo: (t: 'tarea' | 'postit') => void;
@@ -26,18 +29,29 @@ export function ModalCrear({ isOpen, onClose, onSave, modalTipo, setModalTipo, f
 
                 {modalTipo === 'tarea' ? (
                     <>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Fecha</label>
-                                <input type="date" className="bg-black/40 border border-white/10 rounded-xl p-3 text-white text-xs w-full" value={formulario.fecha} onChange={e => setFormulario({ ...formulario, fecha: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Hora Inicio</label>
-                                <input type="time" className="bg-black/40 border border-white/10 rounded-xl p-3 text-white text-xs w-full" value={formulario.hora} onChange={e => setFormulario({ ...formulario, hora: e.target.value })} />
-                            </div>
+                        {/* FECHA */}
+                        <div className="mb-4">
+                            <CalendarPicker
+                                date={formulario.fecha ? new Date(formulario.fecha + 'T00:00:00') : undefined}
+                                setDate={(d) => setFormulario({ ...formulario, fecha: d ? moment(d).format("YYYY-MM-DD") : "" })}
+                            />
                         </div>
 
-                        <div className="space-y-3 mb-6">
+                        {/* SELECTORES DE HORA */}
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            <TimePicker
+                                label="Hora Inicio"
+                                value={formulario.hora || "09:00"}
+                                onChange={(val) => setFormulario({ ...formulario, hora: val })}
+                            />
+                            <TimePicker
+                                label="Hora Fin"
+                                value={formulario.horaFin || "10:00"}
+                                onChange={(val) => setFormulario({ ...formulario, horaFin: val })}
+                            />
+                        </div>
+
+                        <div className="space-y-3 mb-6 mt-4">
                             <select className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-sm outline-none" value={formulario.proyectoId} onChange={e => setFormulario({ ...formulario, proyectoId: e.target.value })}>
                                 <option value="" className="text-gray-500">-- Sin Proyecto (Opcional) --</option>
                                 {proyectos.map((p: any) => <option key={p.id} value={p.id}>📂 {p.nombre}</option>)}

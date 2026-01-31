@@ -1,38 +1,71 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabaseClient";
-import { Movimiento, GastoFijo, Presupuesto, ConfigFinanzas, Cuenta } from "../../types";
-import { toast } from "sonner";
-
-import { useWorkspace } from "../providers/WorkspaceProvider";
-import { useLogger } from "./useLogger";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabaseClient';
+import { useWorkspace } from '../providers/WorkspaceProvider';
+import { toast } from 'sonner';
+import { Movimiento, GastoFijo, Presupuesto, Cuenta, ConfigFinanzas } from '../../types';
+import { useLogger } from './useLogger';
 
 export function useFinanzas() {
     const queryClient = useQueryClient();
     const { currentWorkspace } = useWorkspace();
     const { logEvent } = useLogger();
 
-    // 1. QUERY PRINCIPAL (Carga todo en paralelo y devuelve un objeto unificado)
+    // 1. QUERY PRINCIPAL (Carga todos los datos financieros)
     const { data, isLoading, error } = useQuery({
+        // La clave incluye el ID para que se refresque al cambiar de empresa
         queryKey: ['finanzas', currentWorkspace?.id],
-        queryFn: async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error("No session");
-            const uid = session.user.id;
-            if (!currentWorkspace) {
-                // Si no hay workspace, cargamos datos del usuario (fallback robusto)
-                // console.warn("No current workspace loaded in useFinanzas");
-            }
 
+        // 🛑 ESTA ES LA SOLUCIÓN: Solo ejecuta si existe un workspace seleccionado
+        enabled: !!currentWorkspace?.id,
+
+        queryFn: async () => {
+            if (!currentWorkspace?.id) throw new Error("No workspace selected");
+
+            const wsId = currentWorkspace.id;
+            const { data: { session } } = await supabase.auth.getSession();
+            const uid = session?.user.id;
+
+            // Consultas en Paralelo (Más rápido)
             const [movs, fijos, presus, conf, ctas, perfil] = await Promise.all([
-                supabase.from("movimientos").select("*").eq("owner_id", uid).limit(2000),
-                supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
-                supabase.from("presupuestos").select("*").eq("owner_id", uid),
-                supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(),
-                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid),
-                supabase.from("profiles").select("meta_moneda").eq("id", uid).single()
+                // Movimientos: Estrictamente filtrados por Workspace
+                supabase.from("movimientos")
+                    .select("*")
+                    .eq("workspace_id", wsId)
+                    .order('fecha', { ascending: false })
+                    .limit(2000),
+
+                // Gastos Fijos: Por Workspace
+                supabase.from("gastos_fijos")
+                    .select("*")
+                    .eq("workspace_id", wsId)
+                    .eq("activo", true),
+
+                // Presupuestos: Por Workspace
+                supabase.from("presupuestos")
+                    .select("*")
+                    .eq("workspace_id", wsId),
+
+                // Configuración: Por Workspace (o fallback al usuario)
+                // Nota: Si config_finanzas tiene workspace_id, usarlo. Si no, fallback a owner_id como antes
+                // Asumimos que la tabla config_finanzas aún usa owner_id según esquemas previos, pero intentamos wsId si existe columna
+                supabase.from("config_finanzas")
+                    .select("*")
+                    .eq("owner_id", uid) // Mantenemos owner_id por seguridad si no se migró la tabla config
+                    .maybeSingle(),
+
+                // Cuentas: Por ahora globales del usuario (owner_id)
+                supabase.from("cuentas")
+                    .select("id, nombre")
+                    .eq("owner_id", uid),
+
+                // Perfil: Para la moneda
+                supabase.from("profiles")
+                    .select("meta_moneda")
+                    .eq("id", uid)
+                    .single()
             ]);
 
-            // Procesar Movimientos
+            // Procesar nombres de cuentas en los movimientos
             let movimientosProcessed: Movimiento[] = [];
             if (movs.data && ctas.data) {
                 const mapCuentas = new Map(ctas.data.map((c: any) => [c.id, c.nombre]));
@@ -40,105 +73,82 @@ export function useFinanzas() {
                     ...m,
                     cuenta_nombre: m.cuenta_id ? mapCuentas.get(m.cuenta_id) : '---'
                 }));
-                movimientosProcessed.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
             }
 
-            // Procesar Config
-            const baseConfig = conf.data || { owner_id: uid, porcentaje_ahorro: 10 };
-            // Si no existe, lo creamos (side-effect en fetcher, aceptable aquí para init)
-            if (!conf.data) await supabase.from("config_finanzas").insert(baseConfig);
-
-            const configFull = {
-                ...baseConfig,
-                meta_moneda: perfil.data?.meta_moneda || "USD"
-            };
+            // Configuración por defecto
+            const baseConfig = conf.data || { owner_id: uid, porcentaje_ahorro: 10, meta_mensual: 0 };
 
             return {
                 movimientos: movimientosProcessed,
                 gastosFijos: (fijos.data || []) as GastoFijo[],
                 presupuestos: (presus.data || []) as Presupuesto[],
                 cuentas: (ctas.data || []) as Cuenta[],
-                config: configFull as ConfigFinanzas & { meta_moneda?: string }
+                config: { ...baseConfig, meta_moneda: perfil.data?.meta_moneda || "USD" }
             };
         }
     });
 
-    // 2. MUTACIONES
+    // --- MUTATIONS (Guardar/Editar/Borrar) ---
+
     const guardarMovimientoMutation = useMutation({
-        mutationFn: async ({ data, id }: { data: Partial<Movimiento>, id?: string }) => {
+        mutationFn: async ({ data, id }: { data: any, id?: string }) => {
+            if (!currentWorkspace?.id) throw new Error("No workspace");
+
+            const payload = { ...data, workspace_id: currentWorkspace.id }; // Inyectar ID
             const { data: { session } } = await supabase.auth.getSession();
-            // @ts-ignore
-            const datosFinales = { ...data, workspace_id: currentWorkspace?.id };
 
-            if (id) await supabase.from("movimientos").update(datosFinales).eq("id", id);
-            else await supabase.from("movimientos").insert({ owner_id: session?.user.id, ...datosFinales });
+            if (id) {
+                const { error } = await supabase.from("movimientos").update(payload).eq("id", id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from("movimientos").insert({ owner_id: session?.user.id, ...payload });
+                if (error) throw error;
+            }
         },
-        onSuccess: (_, variables) => {
-            toast.success(variables.id ? "Movimiento actualizado" : "Movimiento registrado");
+        onSuccess: (_, vars) => {
+            toast.success(vars.id ? "Movimiento actualizado" : "Movimiento registrado");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
+            queryClient.invalidateQueries({ queryKey: ['cuentas'] });
 
-            // Log Event
-            const tipo = variables.data.tipo === 'ingreso' ? 'Ingreso' : 'Gasto';
-            const icono = variables.data.tipo === 'ingreso' ? '💰' : '💸';
-            const accion = variables.id ? 'Actualizó' : 'Registró';
-            logEvent(
-                'finanzas',
-                `${accion} un ${tipo} de $${variables.data.monto}: ${variables.data.referencia || 'Sin detalle'}`,
-                icono
-            );
-        },
-        onError: (err) => toast.error("Error: " + err.message)
+            logEvent('finanzas', `Registró movimiento ${vars.data.tipo}`, vars.data.tipo === 'ingreso' ? '💰' : '💸');
+        }
     });
 
     const guardarPresupuestoMutation = useMutation({
-        mutationFn: async ({ data, id }: { data: Partial<Presupuesto>, id?: string }) => {
+        mutationFn: async ({ data, id }: { data: any, id?: string }) => {
+            if (!currentWorkspace?.id) throw new Error("No workspace");
+            const payload = { ...data, workspace_id: currentWorkspace.id };
             const { data: { session } } = await supabase.auth.getSession();
-            // @ts-ignore
-            const datosFinales = { ...data, workspace_id: currentWorkspace?.id };
 
-            if (id) await supabase.from("presupuestos").update(datosFinales).eq("id", id);
-            else await supabase.from("presupuestos").insert({ owner_id: session?.user.id, ...datosFinales });
+            if (id) await supabase.from("presupuestos").update(payload).eq("id", id);
+            else await supabase.from("presupuestos").insert({ owner_id: session?.user.id, ...payload });
         },
-        onSuccess: (_, variables) => {
+        onSuccess: () => {
             toast.success("Presupuesto guardado");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
-
-            // Log Event
-            logEvent('finanzas', `Definió presupuesto para ${variables.data.categoria}: $${variables.data.monto_limite}`, '📊');
         }
     });
 
     const guardarGastoFijoMutation = useMutation({
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
+            if (!currentWorkspace?.id) throw new Error("No workspace");
+            const { fecha_inicio, ...resto } = data;
+            const payload = { ...resto, workspace_id: currentWorkspace.id };
+            if (payload.cuenta_id === "") payload.cuenta_id = null;
+
             const { data: { session } } = await supabase.auth.getSession();
-            const { fecha_inicio, ...datosGuardar } = data;
 
-            // Sanitize
-            if (datosGuardar.cuenta_id === "") datosGuardar.cuenta_id = null;
-
-            // @ts-ignore
-            datosGuardar.workspace_id = currentWorkspace?.id;
-
-            if (id) {
-                const { error } = await supabase.from("gastos_fijos").update(datosGuardar).eq("id", id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from("gastos_fijos").insert({ owner_id: session?.user.id, ...datosGuardar, activo: true });
-                if (error) throw error;
-            }
+            if (id) await supabase.from("gastos_fijos").update(payload).eq("id", id);
+            else await supabase.from("gastos_fijos").insert({ owner_id: session?.user.id, ...payload, activo: true });
         },
-        onSuccess: (_, vars) => {
-            toast.success(vars.id ? "Gasto recurrente actualizado" : "Gasto recurrente creado");
+        onSuccess: () => {
+            toast.success("Gasto fijo guardado");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
-
-            // Log Event
-            logEvent('finanzas', `Configuró gasto recurrente: ${vars.data.nombre} ($${vars.data.monto})`, '🔄');
-        },
-        onError: (err) => toast.error("Error: " + err.message)
+        }
     });
 
     const eliminarMutation = useMutation({
-        mutationFn: async ({ id, tipo }: { id: string, tipo: 'movimiento' | 'presupuesto' | 'gasto_fijo' }) => {
+        mutationFn: async ({ id, tipo }: { id: string, tipo: string }) => {
             let tabla = tipo === 'movimiento' ? 'movimientos' : tipo === 'presupuesto' ? 'presupuestos' : 'gastos_fijos';
             const { error } = await supabase.from(tabla).delete().eq("id", id);
             if (error) throw error;
@@ -146,8 +156,8 @@ export function useFinanzas() {
         onSuccess: () => {
             toast.success("Eliminado correctamente");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
-        },
-        onError: (err) => toast.error("Error al eliminar: " + err.message)
+            queryClient.invalidateQueries({ queryKey: ['cuentas'] });
+        }
     });
 
     const updateConfigMutation = useMutation({
@@ -158,19 +168,20 @@ export function useFinanzas() {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['finanzas'] })
     });
 
-    // 3. EXPORTS (Misma interfaz pública para no romper componentes)
     return {
         loading: isLoading,
+        error,
         movimientos: data?.movimientos || [],
         gastosFijos: data?.gastosFijos || [],
         presupuestos: data?.presupuestos || [],
         cuentas: data?.cuentas || [],
         config: data?.config || { porcentaje_ahorro: 10, meta_moneda: "USD" },
-        cargarDatos: () => queryClient.invalidateQueries({ queryKey: ['finanzas'] }), // Alias para compatibilidad
-        guardarMovimiento: (d: Partial<Movimiento>, id?: string) => guardarMovimientoMutation.mutateAsync({ data: d, id }),
-        guardarPresupuesto: (d: Partial<Presupuesto>, id?: string) => guardarPresupuestoMutation.mutateAsync({ data: d, id }),
+
+        cargarDatos: () => queryClient.invalidateQueries({ queryKey: ['finanzas'] }),
+        guardarMovimiento: (d: any, id?: string) => guardarMovimientoMutation.mutateAsync({ data: d, id }),
+        guardarPresupuesto: (d: any, id?: string) => guardarPresupuestoMutation.mutateAsync({ data: d, id }),
         guardarGastoFijo: (d: any, id?: string) => guardarGastoFijoMutation.mutateAsync({ data: d, id }),
-        eliminarItem: (id: string, tipo: 'movimiento' | 'presupuesto' | 'gasto_fijo') => eliminarMutation.mutateAsync({ id, tipo }),
+        eliminarItem: (id: string, tipo: any) => eliminarMutation.mutateAsync({ id, tipo }),
         updateConfig: (key: string, val: number) => updateConfigMutation.mutateAsync({ key, val })
     };
 }

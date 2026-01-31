@@ -34,16 +34,34 @@ export function useCalendario() {
             tareas.data?.forEach((t: any) => {
                 try {
                     const fechaBase = t.fecha;
+
+                    // HORA INICIO
                     let horaStr = t.hora || "09:00:00";
                     if (horaStr.length === 5) horaStr += ":00";
                     const start = new Date(`${fechaBase}T${horaStr}`);
-                    const end = new Date(start.getTime() + (60 * 60 * 1000));
+
+                    // HORA FIN (Lógica Nueva)
+                    let end;
+                    if (t.hora_fin) {
+                        let finStr = t.hora_fin;
+                        if (finStr.length === 5) finStr += ":00";
+                        end = new Date(`${fechaBase}T${finStr}`);
+                    } else {
+                        // Fallback: Si no tiene hora fin, sumamos 1 hora como antes
+                        end = new Date(start.getTime() + (60 * 60 * 1000));
+                    }
+
                     let titulo = t.titulo;
                     if (t.proyectos) titulo = `📂 ${t.proyectos.nombre}: ${t.titulo}`;
 
                     lista.push({
-                        id: t.id, title: titulo, start, end, allDay: !t.hora,
-                        resource: { ...t, descripcion: t.descripcion, tipo_evento: 'tarea', es_automatico: false, projectId: t.proyecto_id, completada: t.completada }
+                        id: t.id,
+                        title: titulo,
+                        start,
+                        end,
+                        allDay: !t.hora,
+                        // Agregamos hora_fin al resource para poder editarlo luego
+                        resource: { ...t, hora_fin: t.hora_fin, descripcion: t.descripcion, tipo_evento: 'tarea', es_automatico: false, projectId: t.proyecto_id, completada: t.completada }
                     });
                 } catch (e) { }
             });
@@ -151,6 +169,7 @@ export function useCalendario() {
                 descripcion: formulario.descripcion,
                 fecha: formulario.fecha,
                 hora: formulario.hora,
+                hora_fin: formulario.horaFin, // <--- NUEVO CAMPO
                 categoria: formulario.categoria,
                 proyecto_id: formulario.proyectoId || null,
                 completada: false
@@ -176,7 +195,15 @@ export function useCalendario() {
 
     const editarTareaMutation = useMutation({
         mutationFn: async ({ id, formulario }: { id: string, formulario: any }) => {
-            const updateData: any = { titulo: formulario.titulo, descripcion: formulario.descripcion, fecha: formulario.fecha, hora: formulario.hora, categoria: formulario.categoria, proyecto_id: formulario.proyectoId || null };
+            const updateData: any = {
+                titulo: formulario.titulo,
+                descripcion: formulario.descripcion,
+                fecha: formulario.fecha,
+                hora: formulario.hora,
+                hora_fin: formulario.horaFin, // <--- NUEVO CAMPO
+                categoria: formulario.categoria,
+                proyecto_id: formulario.proyectoId || null
+            };
             await supabase.from("tareas").update(updateData).eq("id", id);
         },
         onSuccess: () => {

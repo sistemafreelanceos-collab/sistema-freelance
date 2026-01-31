@@ -1,120 +1,97 @@
-import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { Cuenta } from "../../types";
-import { toast } from "sonner";
-
-type Movimiento = {
-    monto: number;
-    tipo: "ingreso" | "egreso";
-    cuenta_id: string;
-};
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabaseClient';
+import { useWorkspace } from '../providers/WorkspaceProvider';
+import { Cuenta } from '../../types';
+import { toast } from 'sonner';
 
 export function useCuentas() {
+    const { currentWorkspace } = useWorkspace();
     const [cuentas, setCuentas] = useState<Cuenta[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        cargarCuentasYSaldo();
-    }, []);
+        // Solo cargamos si hay workspace
+        if (currentWorkspace?.id) {
+            cargarCuentasYSaldo();
+        } else {
+            setLoading(false);
+            setCuentas([]); // Limpiar si no hay workspace
+        }
+    }, [currentWorkspace?.id]); // Escuchamos cambios en el ID
 
     const cargarCuentasYSaldo = async () => {
         setLoading(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session || !currentWorkspace?.id) return;
+
+            const uid = session.user.id;
+            const wsId = currentWorkspace.id;
+
+            // 1. Traer las Cuentas (Bancos) - Estas siguen siendo del usuario (globales)
+            const { data: dataCuentas, error } = await supabase
+                .from("cuentas")
+                .select("*")
+                .eq("owner_id", uid)
+                .order("is_principal", { ascending: false });
+
+            if (error) throw error;
+
+            // 2. Traer Movimientos (SOLO de esta empresa)
+            const { data: dataMovimientos } = await supabase
+                .from("movimientos")
+                .select("cuenta_id, tipo, monto")
+                .eq("workspace_id", wsId); // <--- FILTRO CRÍTICO
+
+            // 3. Calcular Saldo Virtual
+            // (Cuánto dinero de esta empresa hay en esa cuenta)
+            const cuentasCalculadas = (dataCuentas || []).map((cuenta: any) => {
+                const movsCuenta = (dataMovimientos || []).filter((m: any) => m.cuenta_id === cuenta.id);
+
+                const saldo = movsCuenta.reduce((acc: number, mov: any) => {
+                    const monto = Number(mov.monto) || 0;
+                    return mov.tipo === "ingreso" ? acc + monto : acc - monto;
+                }, 0);
+
+                return { ...cuenta, saldo_calculado: saldo };
+            });
+
+            setCuentas(cuentasCalculadas);
+
+        } catch (error) {
+            console.error(error);
+            toast.error("Error cargando cuentas");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Funciones básicas (Guardar/Eliminar)
+    const guardarCuenta = async (nombre: string, tipo: string, moneda: string) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
-        const { data: dataCuentas, error: errorCuentas } = await supabase
-            .from("cuentas")
-            .select("*")
-            .eq("owner_id", session.user.id)
-            .order("is_principal", { ascending: false });
-
-        if (errorCuentas) {
-            toast.error("Error cargando cuentas");
-            setLoading(false);
-            return;
-        }
-
-        const { data: dataMovimientos, error: errorMov } = await supabase
-            .from("movimientos")
-            .select("cuenta_id, tipo, monto")
-            .eq("owner_id", session.user.id);
-
-        if (errorMov) {
-            toast.error("Error calculando saldos");
-            console.error("Error calculando saldos", errorMov);
-        }
-
-        const cuentasConSaldo = (dataCuentas as Cuenta[]).map(cuenta => {
-            const movimientosCuenta = (dataMovimientos as Movimiento[] || []).filter(m => m.cuenta_id === cuenta.id);
-            const total = movimientosCuenta.reduce((acc, mov) => {
-                return mov.tipo === "ingreso" ? acc + mov.monto : acc - mov.monto;
-            }, 0);
-            return { ...cuenta, saldo_calculado: total };
+        const { error } = await supabase.from("cuentas").insert({
+            nombre, tipo, moneda, owner_id: session.user.id
+            // No añadimos workspace_id a la cuenta en sí, porque es un recurso compartido
         });
 
-        setCuentas(cuentasConSaldo);
-        setLoading(false);
-    };
-
-    const guardarCuenta = async (form: any, isFirst: boolean, id?: string) => {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (id) {
-            // EDITAR
-            const { error } = await supabase.from("cuentas").update({
-                nombre: form.nombre,
-                banco: form.banco || null,
-                tipo: form.tipo,
-                numero: form.numero || null,
-                moneda: form.moneda,
-            }).eq("id", id);
-
-            if (error) throw error;
-            await cargarCuentasYSaldo();
-            toast.success("Cuenta actualizada");
+        if (!error) {
+            toast.success("Cuenta creada");
+            cargarCuentasYSaldo();
         } else {
-            // CREAR
-            const { error } = await supabase.from("cuentas").insert({
-                owner_id: session?.user.id,
-                nombre: form.nombre,
-                banco: form.banco || null,
-                tipo: form.tipo,
-                numero: form.numero || null,
-                moneda: form.moneda,
-                is_principal: isFirst
-            });
-
-            if (error) throw error;
-            await cargarCuentasYSaldo();
-            toast.success("Cuenta creada exitosamente");
+            toast.error("Error al crear cuenta");
         }
     };
 
-    const eliminarCuenta = (id: string) => {
-        toast.error("¿Borrar cuenta? Se perderá el historial.", {
-            action: {
-                label: "Eliminar",
-                onClick: async () => {
-                    const { error } = await supabase.from("cuentas").delete().eq("id", id);
-                    if (error) {
-                        toast.error("Error al eliminar cuenta");
-                    } else {
-                        await cargarCuentasYSaldo();
-                        toast.success("Cuenta eliminada");
-                    }
-                }
-            },
-            cancel: { label: "Cancelar", onClick: () => { } },
-            duration: 5000,
-        });
-    };
-
-    const hacerPrincipal = async (id: string) => {
-        const { data: { session } } = await supabase.auth.getSession();
-        await supabase.from("cuentas").update({ is_principal: false }).eq("owner_id", session?.user.id);
-        await supabase.from("cuentas").update({ is_principal: true }).eq("id", id);
-        await cargarCuentasYSaldo();
-        toast.success("Cuenta marcada como principal");
+    const eliminarCuenta = async (id: string) => {
+        const { error } = await supabase.from("cuentas").delete().eq("id", id);
+        if (!error) {
+            toast.success("Cuenta eliminada");
+            cargarCuentasYSaldo();
+        } else {
+            toast.error("Error al eliminar cuenta");
+        }
     };
 
     return {
@@ -122,7 +99,6 @@ export function useCuentas() {
         loading,
         cargarCuentasYSaldo,
         guardarCuenta,
-        eliminarCuenta,
-        hacerPrincipal
+        eliminarCuenta
     };
 }
