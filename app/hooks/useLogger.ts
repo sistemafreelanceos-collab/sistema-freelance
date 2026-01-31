@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { useWorkspace } from "../providers/WorkspaceProvider";
+import { toast } from "sonner"; // <--- IMPORTANTE
 
 export const useLogger = () => {
     const { currentWorkspace } = useWorkspace();
@@ -15,17 +16,21 @@ export const useLogger = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        try {
-            await supabase.from('timeline').insert({
-                workspace_id: currentWorkspace.id,
-                user_id: user.id,
-                tipo,
-                mensaje,
-                icono,
-                metadata: metadata || {},
-            });
-        } catch (error) {
-            console.error("Error logging event:", error);
+        // 1. Intentamos escribir
+        const { error } = await supabase.from('timeline').insert({
+            workspace_id: currentWorkspace.id,
+            user_id: user.id,
+            tipo,
+            mensaje,
+            icono,
+            metadata: metadata || {},
+        });
+
+        // 2. 🛑 SI HAY ERROR, GRITAMOS (Aquí estaba el silencio antes)
+        if (error) {
+            console.error("❌ Error Bitácora:", error);
+            // Esto te mostrará una alerta roja en la pantalla con la razón exacta
+            toast.error(`Fallo al guardar en bitácora: ${error.message}`);
         }
     };
 

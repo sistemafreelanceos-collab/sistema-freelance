@@ -32,6 +32,7 @@ export function useFinanzas() {
                     .select("*")
                     .eq("workspace_id", wsId)
                     .order('fecha', { ascending: false })
+                    .order('created_at', { ascending: false })
                     .limit(2000),
 
                 // Gastos Fijos: Por Workspace
@@ -110,7 +111,16 @@ export function useFinanzas() {
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
             queryClient.invalidateQueries({ queryKey: ['cuentas'] });
 
-            logEvent('finanzas', `Registró movimiento ${vars.data.tipo}`, vars.data.tipo === 'ingreso' ? '💰' : '💸');
+            // 📝 BITÁCORA DETALLADA
+            const monto = parseFloat(vars.data.monto).toLocaleString();
+            const emoji = vars.data.tipo === 'ingreso' ? '💰' : '💸';
+            const accion = vars.id ? "Actualizó" : "Registró";
+
+            logEvent(
+                'finanzas',
+                `${accion} ${vars.data.tipo}: $${monto} (${vars.data.categoria || 'General'})`,
+                emoji
+            );
         }
     });
 

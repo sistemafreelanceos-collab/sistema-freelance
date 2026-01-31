@@ -22,6 +22,7 @@ interface Props {
 }
 
 import CFOVirtual from "./CFOVirtual"; // Importar componente
+import FinancialProjectionChart from "./FinancialProjectionChart";
 
 export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config, presupuestos }: Props & { config: ConfigFinanzas & { meta_moneda?: string }, presupuestos: any[] }) {
     console.log("TableroTab movimientos:", movimientos);
@@ -110,6 +111,9 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                     </p>
                 </div>
             </div>
+
+            {/* 1.5. CHART PROYECCIÓN FINANCIERA (Nuevo) */}
+            <FinancialProjectionChart movimientos={movimientos} moneda={config.meta_moneda || "USD"} />
 
             {/* 2. SEMÁFORO Y PRÓXIMOS PAGOS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

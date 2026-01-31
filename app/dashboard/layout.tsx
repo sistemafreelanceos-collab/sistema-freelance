@@ -5,9 +5,13 @@ import { supabase } from "../../lib/supabaseClient";
 import Sidebar from "../components/layout/Sidebar";
 import TopBar from "../components/layout/TopBar";
 import { OnboardingProvider } from "@/app/providers/OnboardingProvider";
+import { useEventWatcher } from "../hooks/useEventWatcher";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+
+  // Activar "El Vigía Silencioso" (Alertas Tempranas)
+  useEventWatcher();
 
   // Estados Globales de UI
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

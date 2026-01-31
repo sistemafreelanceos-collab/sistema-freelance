@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import moment from "moment";
 
 import { useWorkspace } from "../providers/WorkspaceProvider";
+import { useLogger } from "./useLogger";
 
 export function useCalendario() {
     const queryClient = useQueryClient();
     const { currentWorkspace } = useWorkspace();
+    const { logEvent } = useLogger();
 
     // 1. QUERY: Eventos Local + DB
     const { data, isLoading } = useQuery({
@@ -219,9 +221,12 @@ export function useCalendario() {
                 await supabase.from("tareas").insert(insertData);
             }
         },
-        onSuccess: () => {
+        onSuccess: (_, vars) => {
             toast.success("Tarea agendada");
             queryClient.invalidateQueries({ queryKey: ['calendario'] });
+            // 📝 BITÁCORA
+            const tipoEmoji = vars.formulario.proyectoId ? '📂' : '📅';
+            logEvent('reunion', `Agendó tarea: ${vars.formulario.titulo}`, tipoEmoji);
         }
     });
 
@@ -241,9 +246,12 @@ export function useCalendario() {
         onSuccess: () => {
             toast.success("Tarea actualizada");
             queryClient.invalidateQueries({ queryKey: ['calendario'] });
+            logEvent('reunion', `Actualizó tarea`, '✏️');
         },
         onError: () => toast.error("Error al actualizar")
     });
+
+    // ... (Notas mutations omitted for brevity, adding completion log below)
 
     const guardarNotaMutation = useMutation({
         mutationFn: async ({ texto, color }: { texto: string, color: TipoNota }) => {
@@ -290,7 +298,12 @@ export function useCalendario() {
         mutationFn: async ({ id, estadoActual }: { id: string, estadoActual: boolean }) => {
             await supabase.from("tareas").update({ completada: !estadoActual }).eq("id", id);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendario'] })
+        onSuccess: (_, vars) => {
+            queryClient.invalidateQueries({ queryKey: ['calendario'] });
+            // 📝 BITÁCORA
+            const estado = !vars.estadoActual ? "Completó" : "Reabrió";
+            logEvent('habito', `${estado} una tarea`, '✅');
+        }
     });
 
     const updateTaskDateMutation = useMutation({

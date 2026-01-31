@@ -1,127 +1,170 @@
 "use client";
 
-import { Fragment } from "react";
-import { Popover, Transition } from "@headlessui/react";
-import { ClockIcon, ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
-import { cn } from "@/lib/utils"; // Assuming you might have utils, if not I will use template literals or install clsx locally in this file if needed. I'll stick to template literals for safety if unsure.
-
-// Helper to generate classes conditionally without external lib deps if not present
-function classNames(...classes: (string | undefined | null | false)[]) {
-    return classes.filter(Boolean).join(' ');
-}
+import { useState, useEffect, useRef } from "react";
+import { Combobox, Transition } from "@headlessui/react";
+import { ChevronUpDownIcon, CheckIcon } from "@heroicons/react/24/solid";
 
 interface TimePickerProps {
     label: string;
-    value: string; // Format "HH:mm" (24h) or "hh:mm" if you handle logic externally, but relying on 24h string is standard for value prop.
+    value: string; // Espera formato "HH:mm" (24h) ej: "14:30"
     onChange: (val: string) => void;
 }
 
+// Generamos opciones cada 15 minutos para la lista rápida
+const TIME_OPTIONS = generateTimeOptions(15);
+
 export function TimePicker({ label, value, onChange }: TimePickerProps) {
-    // Parse current value (assumes "HH:mm" 24h format input)
-    const [hora24, minutos] = (value || "09:00").split(":");
-    let hInt = parseInt(hora24);
-    const ampm = hInt >= 12 ? "PM" : "AM";
-    let hDisplay = hInt % 12;
-    hDisplay = hDisplay ? hDisplay : 12; // 0 becomes 12
+    const [query, setQuery] = useState("");
 
-    const handleUpdate = (newH: number, newM: string, newAmpm: string) => {
-        let h24 = newH;
-        if (newAmpm === "PM" && h24 < 12) h24 += 12;
-        if (newAmpm === "AM" && h24 === 12) h24 = 0;
+    // Convertir el valor "14:30" a "02:30 PM" para mostrarlo bonito
+    const displayValue = formatTimeDisplay(value);
 
-        const hStr = h24.toString().padStart(2, '0');
-        onChange(`${hStr}:${newM}`);
+    // Filtrar opciones basado en lo que escribe el usuario
+    const filteredTimes =
+        query === ""
+            ? TIME_OPTIONS
+            : TIME_OPTIONS.filter((time) => {
+                return time.toLowerCase().includes(query.toLowerCase());
+            });
+
+    // Manejar cuando el usuario selecciona o escribe
+    const handleChange = (val: string) => {
+        // 1. Si eligió de la lista (ej: "02:30 PM") -> Convertir a "14:30"
+        const converted = parseTimeTo24h(val);
+        if (converted) {
+            onChange(converted);
+        } else {
+            // 2. Si está escribiendo algo manual, intentamos interpretarlo
+            // Esto permite escribir "6:35" y que funcione
+            const manual = parseTimeTo24h(query);
+            if (manual) onChange(manual);
+        }
     };
-
-    const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-    const minutes = ['00', '15', '30', '45']; // 15 min steps for cleaner UI, can be expanded
 
     return (
         <div className="w-full">
-            <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">{label}</label>
-            <Popover className="relative">
-                {({ open }) => (
-                    <>
-                        <Popover.Button className={classNames(
-                            "w-full bg-black/40 border rounded-xl p-3 text-white text-xs flex items-center justify-between transition outline-none",
-                            open ? "border-indigo-500 bg-white/5" : "border-white/10 hover:bg-white/5"
-                        )}>
-                            <span className="font-mono text-sm tracking-wider">
-                                {hDisplay.toString().padStart(2, '0')}:{minutos} <span className="text-gray-400 text-[10px] ml-1">{ampm}</span>
-                            </span>
-                            <ClockIcon className="w-4 h-4 text-gray-400" />
-                        </Popover.Button>
-
-                        <Transition
-                            as={Fragment}
-                            enter="transition ease-out duration-100"
-                            enterFrom="transform opacity-0 scale-95"
-                            enterTo="transform opacity-100 scale-100"
-                            leave="transition ease-in duration-75"
-                            leaveFrom="transform opacity-100 scale-100"
-                            leaveTo="transform opacity-0 scale-95"
-                        >
-                            <Popover.Panel className="absolute left-0 z-50 mt-2 w-full bg-[#1C2128] border border-white/10 rounded-xl shadow-2xl p-2 flex gap-1">
-                                {/* HOURS COLUMN */}
-                                <div className="flex-1 h-32 overflow-y-auto scrollbar-hide flex flex-col gap-1 text-center border-r border-white/5 pr-1">
-                                    <span className="text-[9px] text-gray-500 uppercase font-bold mb-1 sticky top-0 bg-[#1C2128]">Hora</span>
-                                    {hours.map(h => (
-                                        <button
-                                            key={h}
-                                            onClick={() => handleUpdate(h, minutos, ampm)}
-                                            className={classNames(
-                                                "py-1 rounded text-xs transition",
-                                                h === hDisplay ? "bg-indigo-600 text-white font-bold" : "text-gray-400 hover:bg-white/10 hover:text-white"
-                                            )}
-                                        >
-                                            {h}
-                                        </button>
-                                    ))}
+            <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">
+                {label}
+            </label>
+            <Combobox value={displayValue} onChange={handleChange} nullable>
+                <div className="relative mt-1">
+                    <div className="relative w-full cursor-default overflow-hidden rounded-xl bg-black/40 border border-white/10 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-300 sm:text-sm">
+                        <Combobox.Input
+                            className="w-full border-none py-3 pl-3 pr-10 text-sm leading-5 text-white bg-transparent focus:ring-0 outline-none font-mono"
+                            displayValue={(time: string) => time}
+                            onChange={(event) => {
+                                setQuery(event.target.value);
+                                // Intentar guardar en tiempo real si es válido
+                                const val = parseTimeTo24h(event.target.value);
+                                if (val) onChange(val);
+                            }}
+                            placeholder="Ej: 09:00 AM"
+                        />
+                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                            <ChevronUpDownIcon
+                                className="h-5 w-5 text-gray-400"
+                                aria-hidden="true"
+                            />
+                        </Combobox.Button>
+                    </div>
+                    <Transition
+                        as="div" // Fragment cause issues sometimes, div is safer
+                        leave="transition ease-in duration-100"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                        afterLeave={() => setQuery("")}
+                    >
+                        <Combobox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-xl bg-[#1C2128] py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm z-50 border border-white/10 custom-scrollbar">
+                            {filteredTimes.length === 0 && query !== "" ? (
+                                <div className="relative cursor-default select-none py-2 px-4 text-gray-500 italic">
+                                    Usa formato "HH:mm" (ej: 6:35 PM)
                                 </div>
-
-                                {/* MINUTES COLUMN */}
-                                <div className="flex-1 h-32 overflow-y-auto scrollbar-hide flex flex-col gap-1 text-center border-r border-white/5 px-1">
-                                    <span className="text-[9px] text-gray-500 uppercase font-bold mb-1 sticky top-0 bg-[#1C2128]">Min</span>
-                                    {minutes.map(m => (
-                                        <button
-                                            key={m}
-                                            onClick={() => handleUpdate(hDisplay, m, ampm)}
-                                            className={classNames(
-                                                "py-1 rounded text-xs transition",
-                                                m === minutos ? "bg-indigo-600 text-white font-bold" : "text-gray-400 hover:bg-white/10 hover:text-white"
-                                            )}
-                                        >
-                                            {m}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* AM/PM COLUMN */}
-                                <div className="w-12 flex flex-col gap-1 justify-center pl-1">
-                                    <button
-                                        onClick={() => handleUpdate(hDisplay, minutos, "AM")}
-                                        className={classNames(
-                                            "flex-1 rounded text-[10px] font-bold transition flex items-center justify-center",
-                                            ampm === "AM" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/50" : "text-gray-500 hover:bg-white/5"
-                                        )}
+                            ) : (
+                                filteredTimes.map((time) => (
+                                    <Combobox.Option
+                                        key={time}
+                                        className={({ active }) =>
+                                            `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? "bg-indigo-600 text-white" : "text-gray-300"
+                                            }`
+                                        }
+                                        value={time}
                                     >
-                                        AM
-                                    </button>
-                                    <button
-                                        onClick={() => handleUpdate(hDisplay, minutos, "PM")}
-                                        className={classNames(
-                                            "flex-1 rounded text-[10px] font-bold transition flex items-center justify-center",
-                                            ampm === "PM" ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/50" : "text-gray-500 hover:bg-white/5"
+                                        {({ selected, active }) => (
+                                            <>
+                                                <span className={`block truncate ${selected ? "font-bold text-white" : "font-normal"}`}>
+                                                    {time}
+                                                </span>
+                                                {selected ? (
+                                                    <span className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? "text-white" : "text-indigo-400"}`}>
+                                                        <CheckIcon className="h-4 w-4" aria-hidden="true" />
+                                                    </span>
+                                                ) : null}
+                                            </>
                                         )}
-                                    >
-                                        PM
-                                    </button>
-                                </div>
-                            </Popover.Panel>
-                        </Transition>
-                    </>
-                )}
-            </Popover>
+                                    </Combobox.Option>
+                                ))
+                            )}
+                        </Combobox.Options>
+                    </Transition>
+                </div>
+            </Combobox>
         </div>
     );
+}
+
+// --- HELPERS (Utilidades para manejar las horas) ---
+
+// 1. Generar lista de horas (00:00 AM ... 11:45 PM)
+function generateTimeOptions(step: number) {
+    const times = [];
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += step) {
+            const h12 = h % 12 || 12;
+            const ampm = h < 12 ? "AM" : "PM";
+            const mStr = m.toString().padStart(2, "0");
+            const hStr = h12.toString().padStart(2, "0");
+            times.push(`${hStr}:${mStr} ${ampm}`);
+        }
+    }
+    return times;
+}
+
+// 2. Formato Visual: "14:30" -> "02:30 PM"
+function formatTimeDisplay(value24h: string) {
+    if (!value24h) return "";
+    const [h, m] = value24h.split(":");
+    if (!h || !m) return value24h;
+
+    let hInt = parseInt(h);
+    const ampm = hInt >= 12 ? "PM" : "AM";
+    hInt = hInt % 12 || 12;
+    return `${hInt.toString().padStart(2, "0")}:${m} ${ampm}`;
+}
+
+// 3. Parser Inteligente: "2:30 pm", "14:30", "635" -> "14:30"
+function parseTimeTo24h(input: string): string | null {
+    if (!input) return null;
+    const clean = input.toLowerCase().trim().replace(/\s/g, ""); // "02:30pm"
+
+    // Regex para capturar horas, minutos y am/pm opcional
+    const match = clean.match(/^(\d{1,2}):?(\d{2})?(am|pm|a|p)?$/);
+
+    if (match) {
+        let h = parseInt(match[1]);
+        const m = match[2] ? parseInt(match[2]) : 0;
+        const ampm = match[3]; // 'am', 'pm', 'a', 'p'
+
+        if (h > 23 || m > 59) return null;
+
+        // Lógica AM/PM
+        if (ampm && (ampm.startsWith("p")) && h < 12) h += 12;
+        if (ampm && (ampm.startsWith("a")) && h === 12) h = 0;
+
+        // Si no escribe AM/PM, asumimos lógica 24h a menos que sea obvio
+        // (Ej: Google asume AM si escribes 7, pero PM si escribes 14)
+
+        return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+    }
+
+    return null;
 }

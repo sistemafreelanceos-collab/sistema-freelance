@@ -6,10 +6,13 @@ import { toast } from "sonner";
 
 import { useWorkspace } from "../providers/WorkspaceProvider";
 
+import { useLogger } from './useLogger'; // <--- IMPORTAR LOG
+
 export function useClientes() {
     const queryClient = useQueryClient();
     const [query, setQuery] = useState("");
     const { currentWorkspace } = useWorkspace();
+    const { logEvent } = useLogger(); // <--- INICIALIZAR
 
     // 1. QUERY PRINCIPAL
     const { data, isLoading } = useQuery({
