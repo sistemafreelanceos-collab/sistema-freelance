@@ -213,8 +213,8 @@ export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar }:
     );
 }
 
-export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar }: any) {
-    const [form, setForm] = useState({ nombre: "", monto: "", moneda: "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios" });
+export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas }: any) {
+    const [form, setForm] = useState({ nombre: "", monto: "", moneda: "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
     const [usarInputTexto, setUsarInputTexto] = useState(false);
 
     useEffect(() => {
@@ -223,10 +223,10 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar }: any) {
                 const hoy = new Date();
                 const dia = gastoEditar.dia_pago || 1;
                 const fechaReconstruida = new Date(hoy.getFullYear(), hoy.getMonth(), dia).toISOString().split('T')[0];
-                setForm({ nombre: gastoEditar.nombre, monto: gastoEditar.monto, moneda: gastoEditar.moneda || "USD", fecha_inicio: fechaReconstruida, categoria: gastoEditar.categoria });
+                setForm({ nombre: gastoEditar.nombre, monto: gastoEditar.monto, moneda: gastoEditar.moneda || "USD", fecha_inicio: fechaReconstruida, categoria: gastoEditar.categoria, cuenta_id: gastoEditar.cuenta_id || "" });
                 if (!CATEGORIAS_BASE.includes(gastoEditar.categoria)) setUsarInputTexto(true);
             } else {
-                setForm({ nombre: "", monto: "", moneda: "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios" });
+                setForm({ nombre: "", monto: "", moneda: "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
                 setUsarInputTexto(false);
             }
         }
@@ -245,6 +245,7 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar }: any) {
                 <h3 className="text-white font-bold mb-4">{gastoEditar ? 'Editar Gasto Recurrente' : 'Nuevo Gasto Recurrente'}</h3>
                 <div className="space-y-4">
                     <input placeholder="Nombre (ej: Netflix)" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none focus:border-indigo-500 transition" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} autoFocus />
+
                     <div className="grid grid-cols-2 gap-3">
                         <input type="number" placeholder="Monto" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })} />
                         <select className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}>
@@ -252,6 +253,12 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar }: any) {
                             <option value="COP">COP</option>
                         </select>
                     </div>
+
+                    <select className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.cuenta_id} onChange={e => setForm({ ...form, cuenta_id: e.target.value })}>
+                        <option value="">-- Cuenta Predeterminada (Opcional) --</option>
+                        {cuentas?.map((c: any) => <option key={c.id} value={c.id}>{c.nombre} ({c.moneda})</option>)}
+                    </select>
+
                     <div className="grid grid-cols-2 gap-3 items-center">
                         <div className="bg-[#0F1115] border border-gray-700 p-3 rounded-xl flex flex-col justify-center">
                             <span className="text-gray-500 text-[10px] uppercase font-bold mb-1">Inicia el / Día de Pago</span>
@@ -298,6 +305,65 @@ export function ModalConfirmacion({ isOpen, onClose, onConfirm, titulo, mensaje 
                         </Button>
                         <Button onClick={() => { onConfirm(); onClose(); }} variant="danger" className="flex-1">
                             Sí, Eliminar
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function ModalPagarGasto({ isOpen, onClose, onConfirm, gasto, cuentas }: any) {
+    const [cuentaId, setCuentaId] = useState("");
+
+    useEffect(() => {
+        if (isOpen && gasto) {
+            setCuentaId(gasto.cuenta_id || (cuentas.length > 0 ? cuentas[0].id : ""));
+        }
+    }, [isOpen, gasto, cuentas]);
+
+    if (!isOpen || !gasto) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+            <div className="bg-[#1C2128] border border-white/10 p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+                <div className="flex flex-col items-center text-center">
+                    <div className="bg-emerald-500/10 p-4 rounded-full mb-4">
+                        <BanknotesIcon className="w-8 h-8 text-emerald-500" />
+                    </div>
+
+                    <h3 className="text-white font-bold text-xl mb-1">Pagar {gasto.nombre}</h3>
+                    <p className="text-emerald-400 font-mono text-2xl font-bold mb-6">
+                        ${Number(gasto.monto).toLocaleString()} <span className="text-sm text-emerald-500/70">{gasto.moneda}</span>
+                    </p>
+
+                    <div className="w-full text-left mb-6">
+                        <label className="text-xs text-gray-500 uppercase font-bold block mb-2">Selecciona la cuenta de salida:</label>
+                        <select
+                            className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none focus:border-emerald-500 transition"
+                            value={cuentaId}
+                            onChange={(e) => setCuentaId(e.target.value)}
+                        >
+                            <option value="">-- Seleccionar Cuenta --</option>
+                            {cuentas?.map((c: any) => (
+                                <option key={c.id} value={c.id}>{c.nombre} ({c.moneda})</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex gap-3 w-full">
+                        <Button onClick={onClose} variant="ghost" className="flex-1">
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (!cuentaId) return toast.error("Selecciona una cuenta");
+                                onConfirm(cuentaId);
+                            }}
+                            disabled={!cuentaId}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-900/20"
+                        >
+                            Confirmar Pago
                         </Button>
                     </div>
                 </div>

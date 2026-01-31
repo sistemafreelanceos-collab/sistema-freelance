@@ -4,6 +4,8 @@ import { supabase } from "../../../../lib/supabaseClient";
 import { GastoFijo, Movimiento } from "../../../../types";
 import { CheckCircleIcon, ClockIcon, PencilIcon, TrashIcon, CalendarDaysIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
+import { ModalPagarGasto } from "./ModalesFinanzas";
+import { useWorkspace } from "../../../providers/WorkspaceProvider";
 
 interface Props {
     gastosFijos: GastoFijo[];
@@ -17,7 +19,9 @@ interface Props {
 }
 
 export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOpenModal, onRecargar, onEdit, onDelete, onSelect }: Props) {
+    const { currentWorkspace } = useWorkspace();
     const [pagandoId, setPagandoId] = useState<string | null>(null);
+    const [gastoAPagar, setGastoAPagar] = useState<GastoFijo | null>(null);
 
     const hoy = new Date();
     const mesActual = hoy.getMonth();
@@ -82,41 +86,53 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
         return fechaPago.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
     };
 
-    const pagarCuota = async (e: any, gasto: GastoFijo) => {
+    const abrirModalPago = (e: any, gasto: GastoFijo) => {
         e.stopPropagation();
-        const cuentaId = cuentas.length > 0 ? cuentas[0].id : null;
-        if (!cuentaId) return toast.error("❌ No tienes cuentas registradas.");
+        setGastoAPagar(gasto);
+    };
 
-        toast("¿Realizar pago?", {
-            description: `Pagar ${gasto.nombre} por $${gasto.monto}`,
-            action: {
-                label: "Pagar Ahora",
-                onClick: async () => {
-                    setPagandoId(gasto.id);
-                    const { error: errMov } = await supabase.from("movimientos").insert({
-                        owner_id: (await supabase.auth.getUser()).data.user?.id,
-                        tipo: "egreso",
-                        monto: gasto.monto,
-                        moneda: gasto.moneda || "USD",
-                        referencia: `Pago Mensual: ${gasto.nombre}`,
-                        categoria: gasto.categoria,
-                        fecha: new Date().toISOString().slice(0, 10),
-                        cuenta_id: cuentaId,
-                        fuente: 'recurrente'
-                    });
+    const handleConfirmarPago = async (cuentaId: string) => {
+        if (!gastoAPagar) return;
 
-                    if (!errMov) {
-                        await supabase.from("gastos_fijos").update({ ultimo_pago: new Date().toISOString() }).eq("id", gasto.id);
-                        onRecargar();
-                        toast.success("Pago registrado correctamente");
-                    } else {
-                        toast.error("Error al registrar el pago");
-                    }
-                    setPagandoId(null);
-                }
-            },
-            cancel: { label: "Cancelar", onClick: () => { } },
-        });
+        // 1. Validar Fondos
+        const movimientosCuenta = movimientos.filter(m => m.cuenta_id === cuentaId);
+        const saldoDisponible = movimientosCuenta.reduce((acc, m) => m.tipo === 'ingreso' ? acc + m.monto : acc - m.monto, 0);
+
+        if (saldoDisponible < gastoAPagar.monto) {
+            toast.error(`❌ Fondos insuficientes. saldo: $${saldoDisponible}`);
+            return;
+        }
+
+        setPagandoId(gastoAPagar.id);
+        setGastoAPagar(null);
+
+        try {
+            const { error: errMov } = await supabase.from("movimientos").insert({
+                owner_id: (await supabase.auth.getUser()).data.user?.id,
+                workspace_id: currentWorkspace?.id,
+                tipo: "egreso",
+                monto: gastoAPagar.monto,
+                moneda: gastoAPagar.moneda || "USD",
+                referencia: `Pago Mensual: ${gastoAPagar.nombre}`,
+                categoria: gastoAPagar.categoria,
+                fecha: new Date().toISOString().slice(0, 10),
+                cuenta_id: cuentaId,
+                fuente: 'recurrente'
+            });
+
+            if (!errMov) {
+                await supabase.from("gastos_fijos").update({ ultimo_pago: new Date().toISOString() }).eq("id", gastoAPagar.id);
+                onRecargar();
+                // Opcional: Actualizar la cuenta por defecto si el usuario eligió una diferente? No por ahora.
+                toast.success("Pago registrado correctamente");
+            } else {
+                toast.error("Error al registrar el pago");
+            }
+        } catch (error) {
+            toast.error("Error inesperado");
+        } finally {
+            setPagandoId(null);
+        }
     };
 
     return (
@@ -139,6 +155,7 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                         const { estado, texto, dias } = getEstadoGasto(gf);
                         const esVencido = estado === 'vencido';
                         const esPagado = estado === 'pagado';
+                        const cuentaAsociada = cuentas.find(c => c.id === gf.cuenta_id);
 
                         return (
                             <div
@@ -166,7 +183,21 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                                     </div>
                                 </div>
 
-                                <p className="text-xl font-mono text-white font-bold">${Number(gf.monto).toLocaleString()} <span className="text-[10px] text-gray-500">{gf.moneda || 'USD'}</span></p>
+                                <div>
+                                    <p className="text-xl font-mono text-white font-bold">${Number(gf.monto).toLocaleString()} <span className="text-[10px] text-gray-500">{gf.moneda || 'USD'}</span></p>
+
+                                    {/* Mostrar cuenta asociada si existe, o indicar Default */}
+                                    {cuentaAsociada ? (
+                                        <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Via: <span className="text-emerald-400 font-bold">{cuentaAsociada.nombre}</span>
+                                        </p>
+                                    ) : (
+                                        <p className="text-[10px] text-gray-500 mt-1 italic">
+                                            Paga desde cuenta principal
+                                        </p>
+                                    )}
+                                </div>
 
                                 <div className="pt-3 border-t border-white/5 flex items-center justify-between">
                                     {esPagado ? (
@@ -179,7 +210,7 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                                                 {esVencido ? <ExclamationTriangleIcon className="w-4 h-4" /> : <ClockIcon className="w-4 h-4" />}
                                                 {texto}
                                             </div>
-                                            <button onClick={(e) => pagarCuota(e, gf)} disabled={pagandoId === gf.id} className="bg-white text-black text-xs font-bold px-4 py-2 rounded-lg hover:scale-105 transition shadow-lg flex-1">
+                                            <button onClick={(e) => abrirModalPago(e, gf)} disabled={pagandoId === gf.id} className="bg-white text-black text-xs font-bold px-4 py-2 rounded-lg hover:scale-105 transition shadow-lg flex-1">
                                                 {pagandoId === gf.id ? "..." : "Pagar"}
                                             </button>
                                         </div>
@@ -190,6 +221,14 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                     })}
                 </div>
             )}
+
+            <ModalPagarGasto
+                isOpen={!!gastoAPagar}
+                onClose={() => setGastoAPagar(null)}
+                onConfirm={handleConfirmarPago}
+                gasto={gastoAPagar}
+                cuentas={cuentas}
+            />
         </div>
     );
 }   

@@ -138,6 +138,7 @@ export default function FinanzasPage() {
           onOpenModal={() => { setPresupuestoEditar(null); setModales({ ...modales, presu: true }); }}
           onEdit={(p) => { setPresupuestoEditar(p); setModales({ ...modales, presu: true }); }}
           onDelete={(id) => handleSolicitarEliminacion(id, 'presupuesto')}
+          moneda={config.meta_moneda || "USD"}
         />
       )}
 
@@ -156,7 +157,7 @@ export default function FinanzasPage() {
 
       <ModalMovimiento isOpen={modales.mov} onClose={() => { setModales({ ...modales, mov: false }); setMovimientoEditar(null); }} onSave={handleSaveMovimiento} cuentas={cuentas} movimientoEditar={movimientoEditar} />
       <ModalPresupuesto isOpen={modales.presu} onClose={() => { setModales({ ...modales, presu: false }); setPresupuestoEditar(null); }} onSave={handleSavePresupuesto} presupuestoEditar={presupuestoEditar} />
-      <ModalGastoFijo isOpen={modales.fijo} onClose={() => { setModales({ ...modales, fijo: false }); setGastoFijoEditar(null); }} onSave={handleSaveGastoFijo} gastoEditar={gastoFijoEditar} />
+      <ModalGastoFijo isOpen={modales.fijo} onClose={() => { setModales({ ...modales, fijo: false }); setGastoFijoEditar(null); }} onSave={handleSaveGastoFijo} gastoEditar={gastoFijoEditar} cuentas={cuentas} />
 
       <ModalDetalleGasto
         isOpen={modales.detalle}

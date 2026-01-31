@@ -5,12 +5,15 @@ import { useCuentas } from "../../hooks/useCuentas";
 import SkeletonGrid from "../components/SkeletonGrid";
 import { toast } from "sonner";
 
+import { PencilIcon } from "@heroicons/react/24/solid";
+
 export default function CuentasPage() {
   const { cuentas, loading, guardarCuenta, eliminarCuenta, hacerPrincipal } = useCuentas();
 
   // Estados locales de UI (Formularios y Modales se quedan aquí, la lógica de datos se va)
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     nombre: "",
     banco: "",
@@ -19,13 +22,31 @@ export default function CuentasPage() {
     moneda: "COP",
   });
 
+  const handleEditar = (cuenta: any) => {
+    setForm({
+      nombre: cuenta.nombre,
+      banco: cuenta.banco || "",
+      tipo: cuenta.tipo,
+      numero: cuenta.numero || "",
+      moneda: cuenta.moneda,
+    });
+    setEditingId(cuenta.id);
+    setModalOpen(true);
+  };
+
+  const handleCancelar = () => {
+    setModalOpen(false);
+    setEditingId(null);
+    setForm({ nombre: "", banco: "", tipo: "ahorros", numero: "", moneda: "COP" });
+  }
+
   const handleGuardar = async () => {
     if (!form.nombre) return toast.warning("Ponle un nombre a la cuenta");
     setSaving(true);
     try {
-      await guardarCuenta(form, cuentas.length === 0);
-      setModalOpen(false);
-      setForm({ nombre: "", banco: "", tipo: "ahorros", numero: "", moneda: "COP" });
+      // Si hay editingId, pasamos el ID para actualizar. Si no, creación normal.
+      await guardarCuenta(form, cuentas.length === 0, editingId || undefined);
+      handleCancelar(); // Cierra y reseta
     } catch (e: any) {
       toast.error("Error: " + e.message);
     } finally {
@@ -43,7 +64,7 @@ export default function CuentasPage() {
           <h1 className="text-3xl font-bold text-white">Mis Cuentas</h1>
           <p className="text-gray-400 text-sm">Administra dónde recibes tu dinero</p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition shadow-lg">
+        <button onClick={() => { setEditingId(null); setForm({ nombre: "", banco: "", tipo: "ahorros", numero: "", moneda: "COP" }); setModalOpen(true); }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition shadow-lg">
           + Nueva Cuenta
         </button>
       </div>
@@ -72,9 +93,13 @@ export default function CuentasPage() {
             </div>
 
             {/* Acciones */}
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-4 items-center">
+              <button onClick={() => handleEditar(c)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition bg-white/5 px-2 py-1 rounded">
+                <PencilIcon className="w-3 h-3" /> Editar
+              </button>
+
               {!c.is_principal && (
-                <button onClick={() => hacerPrincipal(c.id)} className="text-xs text-gray-400 hover:text-white underline">
+                <button onClick={() => hacerPrincipal(c.id)} className="text-xs text-gray-400 hover:text-white underline ml-2">
                   Hacer principal
                 </button>
               )}
@@ -90,10 +115,10 @@ export default function CuentasPage() {
       {modalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-[#1C2128] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
-            <h3 className="text-white font-bold text-lg mb-4">Registrar nueva cuenta</h3>
+            <h3 className="text-white font-bold text-lg mb-4">{editingId ? "Editar Cuenta" : "Registrar nueva cuenta"}</h3>
 
             <div className="space-y-3">
-              <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="Alias (Ej: Nequi Personal)" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" />
+              <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="Alias (Ej: Nequi Personal)" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white font-bold" />
               <input value={form.banco} onChange={e => setForm({ ...form, banco: e.target.value })} placeholder="Banco (Opcional)" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" />
 
               <div className="flex gap-2">
@@ -110,13 +135,13 @@ export default function CuentasPage() {
                 </select>
               </div>
 
-              <input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} placeholder="Número de cuenta (Opcional)" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white" />
+              <input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} placeholder="Número de cuenta (Opcional)" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-lg text-white font-mono" />
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-white px-4 py-2">Cancelar</button>
-              <button onClick={handleGuardar} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition">
-                {saving ? "Guardando..." : "Crear Cuenta"}
+              <button onClick={handleCancelar} className="text-gray-400 hover:text-white px-4 py-2 hover:bg-white/5 rounded-lg transition">Cancelar</button>
+              <button onClick={handleGuardar} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition shadow-lg shadow-emerald-900/20">
+                {saving ? "Guardando..." : (editingId ? "Actualizar" : "Crear Cuenta")}
               </button>
             </div>
           </div>

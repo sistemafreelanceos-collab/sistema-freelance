@@ -9,11 +9,12 @@ interface Props {
     onOpenModal: () => void;
     onEdit: (presupuesto: Presupuesto) => void; // NUEVO
     onDelete: (id: string) => void; // NUEVO
+    moneda: string; // NUEVO
 }
 
-export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal, onEdit, onDelete }: Props) {
+export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal, onEdit, onDelete, moneda }: Props) {
 
-    const semaforo = useMemo(() => {
+    const { semaforo, totalPresupuesto, totalGastado } = useMemo(() => {
         const hoy = new Date();
         const mes = hoy.getMonth();
         const anio = hoy.getFullYear();
@@ -29,9 +30,15 @@ export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal
             gastoPorCat[cat] = (gastoPorCat[cat] || 0) + m.monto;
         });
 
-        return presupuestos.map(p => {
+        let totalP = 0;
+        let totalG = 0;
+
+        const data = presupuestos.map(p => {
             const gastado = gastoPorCat[p.categoria] || 0;
             const porcentaje = p.monto_limite > 0 ? (gastado / p.monto_limite) * 100 : 0;
+
+            totalP += p.monto_limite;
+            totalG += gastado;
 
             let color = "bg-emerald-500";
             let texto = "Controlado";
@@ -41,7 +48,11 @@ export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal
 
             return { ...p, gastado, porcentaje, color, texto };
         });
+
+        return { semaforo: data, totalPresupuesto: totalP, totalGastado: totalG };
     }, [movimientos, presupuestos]);
+
+    const porcentajeTotal = totalPresupuesto > 0 ? (totalGastado / totalPresupuesto) * 100 : 0;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
@@ -49,6 +60,33 @@ export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal
                 <h3 className="text-white font-bold text-xl">Semáforo de Presupuestos</h3>
                 <button onClick={onOpenModal} className="bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg text-sm hover:bg-indigo-500 transition shadow-lg">+ Nuevo Límite</button>
             </div>
+
+            {/* Resumen Total */}
+            {totalPresupuesto > 0 && (
+                <div className="bg-gradient-to-r from-indigo-900/40 to-[#161B22] border border-indigo-500/30 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex-1 w-full">
+                        <p className="text-gray-400 text-sm font-bold uppercase mb-1">Presupuesto Mensual Total</p>
+                        <div className="flex items-baseline gap-3">
+                            <h2 className="text-4xl font-mono font-bold text-white">${totalPresupuesto.toLocaleString()}</h2>
+                            <span className="text-sm text-gray-500 font-bold text-indigo-400">{moneda}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 w-full border-l border-white/10 pl-6">
+                        <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-400">Gastado: <span className="text-white font-bold">${totalGastado.toLocaleString()} {moneda}</span></span>
+                            <span className={`${porcentajeTotal > 100 ? 'text-red-400' : 'text-emerald-400'} font-bold`}>{porcentajeTotal.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-800 rounded-full h-4 overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-500 ${porcentajeTotal > 100 ? 'bg-red-500' : porcentajeTotal > 80 ? 'bg-yellow-500' : 'bg-emerald-500'}`}
+                                style={{ width: `${Math.min(porcentajeTotal, 100)}%` }}
+                            ></div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 text-right">Disponible: ${(Math.max(0, totalPresupuesto - totalGastado)).toLocaleString()} {moneda}</p>
+                    </div>
+                </div>
+            )}
 
             {semaforo.length === 0 ? (
                 <div className="text-center py-20 bg-[#161B22] border border-white/5 rounded-2xl">
@@ -72,13 +110,15 @@ export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal
                             <div className="flex justify-between items-end mb-4 pr-16">
                                 <div>
                                     <h4 className="text-white font-bold capitalize text-lg">{p.categoria}</h4>
-                                    <p className="text-xs text-gray-400">Tope: ${p.monto_limite.toLocaleString()}</p>
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-end mb-2">
-                                <p className="text-3xl font-mono font-bold text-white">${p.gastado.toLocaleString()}</p>
-                                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase text-white ${p.color.replace('bg-', 'bg-opacity-20 text-')}`}>{p.texto}</span>
+                                <p className="text-2xl font-mono font-bold text-white flex items-baseline">
+                                    ${p.gastado.toLocaleString()}
+                                    <span className="text-gray-500 text-lg ml-1">/ ${p.monto_limite.toLocaleString()}</span>
+                                </p>
+                                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${p.color === 'bg-emerald-500' ? 'text-emerald-400 bg-emerald-500/10' : p.color === 'bg-yellow-500' ? 'text-yellow-400 bg-yellow-500/10' : 'text-red-400 bg-red-500/10'}`}>{p.texto}</span>
                             </div>
 
                             <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">

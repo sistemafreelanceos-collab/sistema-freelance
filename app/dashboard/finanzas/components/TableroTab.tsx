@@ -24,6 +24,8 @@ interface Props {
 import CFOVirtual from "./CFOVirtual"; // Importar componente
 
 export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config, presupuestos }: Props & { config: ConfigFinanzas & { meta_moneda?: string }, presupuestos: any[] }) {
+    console.log("TableroTab movimientos:", movimientos);
+
 
     const formatDate = (fechaString: string) => {
         if (!fechaString) return "—";

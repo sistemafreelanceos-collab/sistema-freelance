@@ -56,22 +56,35 @@ export function useCuentas() {
         setLoading(false);
     };
 
-    const guardarCuenta = async (form: any, isFirst: boolean) => {
+    const guardarCuenta = async (form: any, isFirst: boolean, id?: string) => {
         const { data: { session } } = await supabase.auth.getSession();
 
-        const { error } = await supabase.from("cuentas").insert({
-            owner_id: session?.user.id,
-            nombre: form.nombre,
-            banco: form.banco || null,
-            tipo: form.tipo,
-            numero: form.numero || null,
-            moneda: form.moneda,
-            is_principal: isFirst
-        });
+        if (id) {
+            // EDITAR
+            const { error } = await supabase.from("cuentas").update({
+                nombre: form.nombre,
+                banco: form.banco || null,
+                tipo: form.tipo,
+                numero: form.numero || null,
+                moneda: form.moneda,
+            }).eq("id", id);
 
-        if (error) {
-            throw error;
+            if (error) throw error;
+            await cargarCuentasYSaldo();
+            toast.success("Cuenta actualizada");
         } else {
+            // CREAR
+            const { error } = await supabase.from("cuentas").insert({
+                owner_id: session?.user.id,
+                nombre: form.nombre,
+                banco: form.banco || null,
+                tipo: form.tipo,
+                numero: form.numero || null,
+                moneda: form.moneda,
+                is_principal: isFirst
+            });
+
+            if (error) throw error;
             await cargarCuentasYSaldo();
             toast.success("Cuenta creada exitosamente");
         }

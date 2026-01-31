@@ -107,6 +107,7 @@ export type GastoFijo = {
     moneda?: string;
     owner_id?: string;
     ultimo_pago?: string;
+    cuenta_id?: string;
 };
 
 export type Presupuesto = {

@@ -4,10 +4,12 @@ import { Movimiento, GastoFijo, Presupuesto, ConfigFinanzas, Cuenta } from "../.
 import { toast } from "sonner";
 
 import { useWorkspace } from "../providers/WorkspaceProvider";
+import { useLogger } from "./useLogger";
 
 export function useFinanzas() {
     const queryClient = useQueryClient();
     const { currentWorkspace } = useWorkspace();
+    const { logEvent } = useLogger();
 
     // 1. QUERY PRINCIPAL (Carga todo en paralelo y devuelve un objeto unificado)
     const { data, isLoading, error } = useQuery({
@@ -16,14 +18,17 @@ export function useFinanzas() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("No session");
             const uid = session.user.id;
-            if (!currentWorkspace) return { movimientos: [], gastosFijos: [], presupuestos: [], cuentas: [], config: { porcentaje_ahorro: 10, meta_moneda: "USD" } };
+            if (!currentWorkspace) {
+                // Si no hay workspace, cargamos datos del usuario (fallback robusto)
+                // console.warn("No current workspace loaded in useFinanzas");
+            }
 
             const [movs, fijos, presus, conf, ctas, perfil] = await Promise.all([
-                supabase.from("movimientos").select("*").eq("workspace_id", currentWorkspace.id).limit(2000),
-                supabase.from("gastos_fijos").select("*").eq("workspace_id", currentWorkspace.id).eq("activo", true),
-                supabase.from("presupuestos").select("*").eq("workspace_id", currentWorkspace.id),
-                supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(), // Config personal por ahora? O workspace? Dejemos personal.
-                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid), // Cuentas siguen siendo personales por ahora
+                supabase.from("movimientos").select("*").eq("owner_id", uid).limit(2000),
+                supabase.from("gastos_fijos").select("*").eq("owner_id", uid).eq("activo", true),
+                supabase.from("presupuestos").select("*").eq("owner_id", uid),
+                supabase.from("config_finanzas").select("*").eq("owner_id", uid).single(),
+                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid),
                 supabase.from("profiles").select("meta_moneda").eq("id", uid).single()
             ]);
 
@@ -71,6 +76,16 @@ export function useFinanzas() {
         onSuccess: (_, variables) => {
             toast.success(variables.id ? "Movimiento actualizado" : "Movimiento registrado");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
+
+            // Log Event
+            const tipo = variables.data.tipo === 'ingreso' ? 'Ingreso' : 'Gasto';
+            const icono = variables.data.tipo === 'ingreso' ? '💰' : '💸';
+            const accion = variables.id ? 'Actualizó' : 'Registró';
+            logEvent(
+                'finanzas',
+                `${accion} un ${tipo} de $${variables.data.monto}: ${variables.data.referencia || 'Sin detalle'}`,
+                icono
+            );
         },
         onError: (err) => toast.error("Error: " + err.message)
     });
@@ -84,9 +99,12 @@ export function useFinanzas() {
             if (id) await supabase.from("presupuestos").update(datosFinales).eq("id", id);
             else await supabase.from("presupuestos").insert({ owner_id: session?.user.id, ...datosFinales });
         },
-        onSuccess: () => {
+        onSuccess: (_, variables) => {
             toast.success("Presupuesto guardado");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
+
+            // Log Event
+            logEvent('finanzas', `Definió presupuesto para ${variables.data.categoria}: $${variables.data.monto_limite}`, '📊');
         }
     });
 
@@ -94,6 +112,10 @@ export function useFinanzas() {
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
             const { data: { session } } = await supabase.auth.getSession();
             const { fecha_inicio, ...datosGuardar } = data;
+
+            // Sanitize
+            if (datosGuardar.cuenta_id === "") datosGuardar.cuenta_id = null;
+
             // @ts-ignore
             datosGuardar.workspace_id = currentWorkspace?.id;
 
@@ -108,6 +130,9 @@ export function useFinanzas() {
         onSuccess: (_, vars) => {
             toast.success(vars.id ? "Gasto recurrente actualizado" : "Gasto recurrente creado");
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
+
+            // Log Event
+            logEvent('finanzas', `Configuró gasto recurrente: ${vars.data.nombre} ($${vars.data.monto})`, '🔄');
         },
         onError: (err) => toast.error("Error: " + err.message)
     });
