@@ -10,7 +10,7 @@ const NOTIFICATION_SOUND = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAA
 // Mejor opción: AudioContext oscillator para no cargar assets.
 
 export function useEventWatcher() {
-    const { eventos } = useCalendario(); // Asumimos que esto trae todo mezclado
+    const { eventosDB: eventos } = useCalendario(); // Asumimos que esto trae todo mezclado
     const [alertMinutes, setAlertMinutes] = useState(10); // Configurable
     const [notifiedIds, setNotifiedIds] = useState<Set<string>>(new Set());
 
