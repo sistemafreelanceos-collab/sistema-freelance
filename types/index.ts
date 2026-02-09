@@ -127,9 +127,12 @@ export type ConfigFinanzas = {
 };
 
 export type UserXP = {
+    id: string;
+    owner_id: string;
     xp_total: number;
     nivel: number;
-    owner_id?: string;
+    racha_maxima: number;
+    updated_at: string;
 };
 
 // --- CONFIGURACIÓN TYPES ---
@@ -186,6 +189,15 @@ export interface Clausula {
     id: string;
     titulo: string;
     contenido: string;
+}
+
+export interface PlantillaProyecto {
+    id: string;
+    owner_id: string;
+    nombre: string;
+    descripcion: string;
+    tareas_default: any; // JSONB
+    created_at: string;
 }
 
 export interface PlantillaServicio {
@@ -274,3 +286,68 @@ export type WorkspaceMember = {
     role: WorkspaceRole;
     joined_at: string;
 };
+
+export type WorkspaceInvite = {
+    id: string;
+    workspace_id: string;
+    email: string;
+    role: WorkspaceRole;
+    token: string;
+    status: 'pending' | 'accepted' | 'rejected';
+    created_at: string;
+};
+
+// --- WIKI / DOCS TYPES ---
+export type Doc = {
+    id: string;
+    workspace_id: string;
+    client_id?: string | null;
+    title: string;
+    content: any; // JSONB
+    emoji?: string | null;
+    cover_url?: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
+// --- HABITS & WELLNESS TYPES ---
+export type Habito = {
+    id: string;
+    owner_id: string;
+    nombre: string;
+    icono: string;
+    meta_semanal: number;
+    activo: boolean;
+    created_at: string;
+};
+
+export type RegistroHabito = {
+    id: string;
+    habito_id: string;
+    fecha: string;
+    completado: boolean;
+};
+
+export type RegistroSueno = {
+    id: string;
+    owner_id: string;
+    fecha: string;
+    horas_sueno: number;
+    calidad: number;
+    bateria_calculada: number;
+    created_at: string;
+};
+
+export type ProfileDB = {
+    id: string;
+    email: string;
+    nombre: string;
+    avatar_url?: string | null;
+    color_tema: string;
+    has_seen_onboarding: boolean;
+    xp_total: number;
+    nivel: number;
+    racha_maxima: number;
+    created_at: string;
+};
+

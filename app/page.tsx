@@ -8,7 +8,7 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 // Tipos de error comunes
 const ERROR_MAP: Record<string, string> = {
-  "Invalid login credentials": "Correo o contraseña incorrectos.",
+  "Invalid login credentials": "No encontramos esta cuenta o la clave está mal. ¿Ya te registraste?",
   "User not found": "El usuario no existe.",
   "User already registered": "Este correo ya está registrado.",
   "Password should be at least 6 characters": "La contraseña debe tener al menos 6 caracteres.",

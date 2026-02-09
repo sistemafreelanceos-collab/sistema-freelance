@@ -49,12 +49,8 @@ export default function TopBar({
         queryClient.removeQueries();
         queryClient.clear();
 
-        // 2. Limpiar LocalStorage crítico (datos persistentes de sesión/workspace)
-        localStorage.removeItem("onyx_workspace_id");
-        localStorage.removeItem("has_seen_tour_finanzas");
-        localStorage.removeItem("has_seen_tour_clientes");
-        localStorage.removeItem("has_seen_tour_calendario");
-        // No borramos 'freelanceOS_email' si el usuario eligió "Recordar" en Login
+        // 2. Limpiar TODO el LocalStorage (Slate Limpio)
+        localStorage.clear();
 
         // 3. Cerrar sesión en Supabase
         await supabase.auth.signOut();

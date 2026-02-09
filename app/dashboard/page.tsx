@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useWorkspace } from "../providers/WorkspaceProvider";
 import { toast } from "sonner";
+import CreateWorkspaceModal from "../components/modals/CreateWorkspaceModal";
 
 // --- TIPOS ---
 type AlertaPago = {
@@ -50,8 +51,11 @@ function DetectorBienvenida({ setModal }: { setModal: (v: boolean) => void }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { currentWorkspace } = useWorkspace();
-  const [modalBienvenida, setModalBienvenida] = useState(false);
+  // 🟢 IMPORTANTE: Usamos isLoading global para saber si seguimos buscando empresa
+  const { currentWorkspace, isLoading: isWorkspaceLoading, switchWorkspace } = useWorkspace();
+
+  // Controls the "Create Company" modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -63,12 +67,25 @@ export default function DashboardPage() {
   const [totalProyectos, setTotalProyectos] = useState(0);
   const [ultimosMovimientos, setUltimosMovimientos] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<AlertaPago[]>([]);
+
   useEffect(() => {
-    // Si no hay workspace cargado, esperamos
-    if (!currentWorkspace) return;
+    // Si todavía está cargando el contexto global, esperamos
+    if (isWorkspaceLoading) return;
+
+    // Si terminó de cargar y NO hay workspace, mostramos el modal de Crear Empresa Automáticamente
+    if (!currentWorkspace) {
+      setLoading(false);
+      // FORCE OPEN MODAL FOR NEW USERS
+      setShowCreateModal(true);
+      return;
+    }
 
     const init = async () => {
-      setLoading(true);
+      // SOLO mostrar pantalla de carga si no hay datos previos (Evita parpadeos)
+      // Usamos los estados para saber si ya se cargó algo antes
+      const hasData = clientesActivos > 0 || totalProyectos > 0 || cuentasConSaldo.length > 0 || Object.keys(ingresosMesPorMoneda).length > 0;
+
+      if (!hasData) setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/"); return; }
 
@@ -87,7 +104,7 @@ export default function DashboardPage() {
       const { data: clientesPendientes } = await supabase
         .from("clientes")
         .select("id, nombre, proximo_pago, monto, moneda")
-        .eq("workspace_id", wsId) // <--- FILTRO POR EMPRESA
+        .eq("workspace_id", wsId)
         .eq("estado", "activo")
         .not("proximo_pago", "is", null);
 
@@ -116,17 +133,15 @@ export default function DashboardPage() {
       }
 
       // 3. FINANZAS Y CUENTAS
-      // A) Las Cuentas son GLOBALES (del usuario), NO de la empresa
       const { data: cuentasData } = await supabase
         .from("cuentas")
         .select("id, nombre, moneda")
-        .eq("owner_id", userId); // <--- SOLO FILTRO POR USUARIO
+        .eq("owner_id", userId);
 
-      // B) Los Movimientos son LOCALES (de esta empresa)
       const { data: movs } = await supabase
         .from("movimientos")
         .select("monto, tipo, fecha, moneda, cuenta_id")
-        .eq("workspace_id", wsId); // <--- SOLO DE ESTA EMPRESA
+        .eq("workspace_id", wsId);
 
       if (movs && cuentasData) {
         const ingresosMesTemp: Record<string, number> = {};
@@ -135,7 +150,6 @@ export default function DashboardPage() {
         const saldosTemp: Record<string, number> = {};
 
         movs.forEach(m => {
-          // Ingresos del mes actual
           const partes = m.fecha.split('-');
           const fMov = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
           const moneda = m.moneda || 'USD';
@@ -144,7 +158,6 @@ export default function DashboardPage() {
             ingresosMesTemp[moneda] = (ingresosMesTemp[moneda] || 0) + m.monto;
           }
 
-          // Acumular saldo por cuenta (Solo suma lo de ESTA empresa)
           if (m.cuenta_id) {
             if (saldosTemp[m.cuenta_id] === undefined) saldosTemp[m.cuenta_id] = 0;
             if (m.tipo === 'ingreso') saldosTemp[m.cuenta_id] += m.monto;
@@ -152,13 +165,12 @@ export default function DashboardPage() {
           }
         });
 
-        // Mapear cuentas y asignarles SU saldo en ESTA empresa
         const cuentasList: CuentaConSaldo[] = cuentasData.map(c => ({
           id: c.id,
           nombre: c.nombre,
           moneda: c.moneda,
           saldo: saldosTemp[c.id] || 0
-        })).filter(c => c.saldo !== 0); // Ocultar si en esta empresa no tiene saldo
+        })).filter(c => c.saldo !== 0);
 
         setCuentasConSaldo(cuentasList);
         setIngresosMesPorMoneda(ingresosMesTemp);
@@ -185,14 +197,50 @@ export default function DashboardPage() {
     };
 
     init();
-  }, [router, currentWorkspace]); // Se recarga cuando cambias de empresa
+  }, [router, currentWorkspace, isWorkspaceLoading]); // Dependencias clave
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Cargando tablero...</div>;
+  const handleCreateSuccess = (newId: string) => {
+    switchWorkspace(newId);
+    window.location.reload();
+  };
+
+  // --- ESTADOS DE CARGA ---
+
+  // 1. Si el contexto global sigue buscando empresa, mostramos Loading Global
+  if (isWorkspaceLoading) return <div className="min-h-screen flex items-center justify-center text-emerald-500 animate-pulse">Buscando tu espacio de trabajo...</div>;
+
+  // 2. Si ya terminó de buscar y NO hay empresa, mostramos "Crear Empresa" (Empty State)
+  if (!currentWorkspace) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center relative">
+        <div className="text-6xl mb-4">🏢</div>
+        <h1 className="text-2xl font-bold text-white mb-2">Aún no tienes una empresa</h1>
+        <p className="text-gray-400 mb-6 max-w-md">Parece que hubo un problema creando tu espacio automático. No te preocupes, puedes crear uno ahora.</p>
+
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-lg font-bold transition flex items-center gap-2 mx-auto"
+        >
+          <span className="text-xl">+</span> Crear Mi Primera Empresa
+        </button>
+
+        {/* MODAL OFICIAL DE CREACIÓN */}
+        <CreateWorkspaceModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      </div>
+    );
+  }
+
+  // 3. Si está cargando datos del dashboard (local)
+  if (loading && currentWorkspace) return <div className="min-h-screen flex items-center justify-center text-gray-500">Cargando métricas...</div>;
 
   return (
     <div className="max-w-6xl mx-auto pb-10">
       <Suspense fallback={null}>
-        <DetectorBienvenida setModal={setModalBienvenida} />
+        <DetectorBienvenida setModal={setShowCreateModal} />
       </Suspense>
 
       {/* Header */}
@@ -296,18 +344,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {modalBienvenida && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-          <div className="bg-[#161B22] border border-emerald-500/30 p-8 rounded-2xl w-full max-w-md text-center shadow-2xl shadow-emerald-900/20 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-600 to-blue-600"></div>
-            <div className="mb-6 inline-flex p-4 rounded-full bg-emerald-500/10 text-4xl">🚀</div>
-            <h2 className="text-2xl font-bold text-white mb-2">¡Bienvenido a bordo!</h2>
-            <p className="text-gray-400 mb-8">Para empezar con el pie derecho, configuremos rápidamente los detalles de tu negocio.</p>
-            <button onClick={() => router.push("/dashboard/perfil")} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2">Configurar mi Negocio →</button>
-            <button onClick={() => setModalBienvenida(false)} className="mt-4 text-sm text-gray-500 hover:text-white transition underline">Saltar por ahora</button>
-          </div>
-        </div>
-      )}
+      {/* 
+         NOTA PARA EL USUARIO:
+         Antes había aquí un modal de "Bienvenido". Lo he eliminado.
+         Ahora usamos 'CreateWorkspaceModal' arriba, que es el modal nativo para crear empresa.
+      */}
+
     </div>
   );
 }

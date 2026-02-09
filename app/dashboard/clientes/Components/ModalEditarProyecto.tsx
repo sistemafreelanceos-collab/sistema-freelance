@@ -60,7 +60,7 @@ export default function ModalEditarProyecto({ isOpen, onClose, proyecto, onProye
       entregables_totales: form.entregables_totales
     })
       .eq("id", proyecto.id)
-      .select("*, gastos(monto)")
+      .select("*, movimientos(monto)")
       .single();
 
     setLoading(false);

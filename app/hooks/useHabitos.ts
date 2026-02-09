@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { UserXP } from "../../types";
 import { toast } from "sonner";
+import { useWorkspace } from "../providers/WorkspaceProvider";
 
 export function useHabitos() {
+    const { currentWorkspace } = useWorkspace();
     const [userId, setUserId] = useState("");
     const [proyectos, setProyectos] = useState<{ id: string, nombre: string }[]>([]);
     const [userXP, setUserXP] = useState<UserXP>({ xp_total: 0, nivel: 1 });
@@ -16,8 +18,11 @@ export function useHabitos() {
             const uid = session.user.id;
             setUserId(uid);
 
+            if (!currentWorkspace) return;
+
+            // Cargar Proyectos (Del Workspace actual) y XP (Del Usuario global)
             const [resProyectos, resXP] = await Promise.all([
-                supabase.from("proyectos").select("id, nombre").eq("owner_id", uid),
+                supabase.from("proyectos").select("id, nombre").eq("workspace_id", currentWorkspace.id),
                 supabase.from("user_xp").select("xp_total, nivel").eq("owner_id", uid).single()
             ]);
 
@@ -26,12 +31,14 @@ export function useHabitos() {
             if (resXP.data) {
                 setUserXP(resXP.data);
             } else {
-                await supabase.from("user_xp").insert({ owner_id: uid, xp_total: 0, nivel: 1 });
+                // Crear fila de XP si no existe
+                const { data: newXP } = await supabase.from("user_xp").insert({ owner_id: uid, xp_total: 0, nivel: 1 }).select().single();
+                if (newXP) setUserXP(newXP);
             }
             setLoading(false);
         };
         init();
-    }, []);
+    }, [currentWorkspace]);
 
     const updateXP = async (puntos: number) => {
         const nuevoXP = Math.max(0, userXP.xp_total + puntos);

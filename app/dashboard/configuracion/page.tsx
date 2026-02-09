@@ -12,12 +12,14 @@ import DataTab from "./components/DataTab";
 import TeamTab from "./components/TeamTab"; // New import
 import MotivationTab from "./components/MotivationTab"; // New import
 import { toast } from "sonner";
+import { useWorkspace } from "../../providers/WorkspaceProvider"; // 🟢 Importar Hook de Workspace (Corregido)
 
 export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"perfil" | "marca" | "finanzas" | "servicios" | "contratos" | "datos" | "equipo" | "motivacion">("perfil"); // Default to perfil
   const [saving, setSaving] = useState(false);
+  const { currentWorkspace } = useWorkspace(); // 🟢 Obtener workspace actual
 
   // Estado centralizado para el PERFIL (Marca y Finanzas comparten tabla)
   const [config, setConfig] = useState<ConfigPerfil>({
@@ -75,7 +77,7 @@ export default function ConfiguracionPage() {
           setConfig({
             // Mapeo Directo BD -> State
             nombre: p.nombre || "",
-            empresa: p.empresa || "",
+            empresa: p.empresa || currentWorkspace?.name || "", // 🟢 Default al Workspace Name
             telefono: p.telefono || "",
             direccion: p.direccion || "",
             email: p.email || user.email || "", // Fallback al auth email
@@ -102,7 +104,7 @@ export default function ConfiguracionPage() {
 
             // Compatibilidad UI (Alias)
             nombre_completo: p.nombre || "",
-            branding_legal: p.empresa || "", // Alias para componentes viejos
+            branding_legal: p.empresa || currentWorkspace?.name || "", // 🟢 Default al Workspace Name
             email_contacto: p.email || user.email || "",
             ubicacion: p.direccion || "",
           });
@@ -172,23 +174,29 @@ export default function ConfiguracionPage() {
           { id: "perfil", label: "👤 Perfil Base" },
           { id: "marca", label: "🎨 Marca & Firma" },
           { id: "finanzas", label: "💰 Finanzas & Metas" },
-          { id: "motivacion", label: "💡 Motivación" }, // New tab
+          { id: "motivacion", label: "💡 Motivación" },
           { id: "servicios", label: "📦 Servicios Recurrentes" },
-          { id: "contratos", label: "📜 Contratos & Cláusulas" },
+          { id: "contratos", label: "📜 Contratos" }, // Bloqueado visualmente
           { id: "equipo", label: "👥 Equipo" },
           { id: "datos", label: "💾 Datos" }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-3 text-sm font-bold whitespace-nowrap transition border-b-2 ${activeTab === tab.id
-              ? "text-emerald-400 border-emerald-400"
-              : "text-gray-400 border-transparent hover:text-white"
-              } `}
-          >
-            {tab.label}
-          </button>
-        ))}
+        ].map(tab => {
+          const isLocked = tab.id === "contratos";
+          return (
+            <button
+              key={tab.id}
+              onClick={() => !isLocked && setActiveTab(tab.id as any)}
+              disabled={isLocked}
+              className={`pb-3 text-sm font-bold whitespace-nowrap transition border-b-2 flex items-center gap-2 ${activeTab === tab.id
+                ? "text-emerald-400 border-emerald-400"
+                : isLocked
+                  ? "text-gray-600 border-transparent cursor-not-allowed"
+                  : "text-gray-400 border-transparent hover:text-white"
+                } `}
+            >
+              {tab.label} {isLocked && <span className="text-[10px] bg-gray-700 text-gray-400 px-1.5 rounded">Pronto</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* --- RENDERIZADO CONDICIONAL --- */}

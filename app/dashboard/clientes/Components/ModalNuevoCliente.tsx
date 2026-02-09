@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "../../../../lib/supabaseClient";
-import { Cliente } from "../../../../types";
+// import { supabase } from "../../../../lib/supabaseClient"; 
+// import { Cliente } from "../../../../types"; 
 import { toast } from "sonner";
 
 interface Props {
@@ -18,7 +18,7 @@ export default function ModalNuevoCliente({ isOpen, onClose, onClienteCreado, us
     empresa: "",
     email: "",
     telefono: "",
-    nota: ""
+    notas: "" // 🟢 CORREGIDO: Plural (antes era 'nota')
   });
 
   const handleSubmit = async () => {
@@ -27,21 +27,21 @@ export default function ModalNuevoCliente({ isOpen, onClose, onClienteCreado, us
 
     try {
       // Delegamos la creación al hook (que maneja workspace_id y RLS)
-      // Pasamos un objeto parcial que cumple con lo que espera crearCliente
       await onClienteCreado({
-        owner_id: userId,
+        // owner_id: userId, // Ya no se envía
         nombre: form.nombre,
         empresa: form.empresa,
         email: form.email,
         telefono: form.telefono,
-        nota: form.nota,
+        notas: form.notas, // 🟢 CORREGIDO: Plural
         estado: 'activo',
         moneda: 'USD',
         frecuencia_pago: 'unico'
-      } as any); // Cast as any or Partial<Cliente> if needed, hooks handles the rest
+      });
 
       onClose();
-      setForm({ nombre: "", empresa: "", email: "", telefono: "", nota: "" });
+      // Limpiamos el formulario
+      setForm({ nombre: "", empresa: "", email: "", telefono: "", notas: "" });
     } catch (error: any) {
       console.error(error);
       toast.error("Error al crear: " + error.message);
@@ -54,7 +54,6 @@ export default function ModalNuevoCliente({ isOpen, onClose, onClienteCreado, us
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      {/* CAMBIO AQUÍ: Fondo Transparente (Glass) 👇 */}
       <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
 
         <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
@@ -108,8 +107,8 @@ export default function ModalNuevoCliente({ isOpen, onClose, onClienteCreado, us
           <div>
             <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Notas Internas</label>
             <textarea
-              value={form.nota}
-              onChange={e => setForm({ ...form, nota: e.target.value })}
+              value={form.notas} // 🟢 CORREGIDO: Plural
+              onChange={e => setForm({ ...form, notas: e.target.value })} // 🟢 CORREGIDO: Plural
               placeholder="Detalles importantes..."
               className="w-full bg-black/40 border border-white/10 p-3 rounded-xl text-white text-sm outline-none focus:border-emerald-500 transition h-20 resize-none"
             />

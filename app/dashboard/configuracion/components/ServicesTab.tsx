@@ -130,8 +130,8 @@ export default function ServicesTab({ userId, monedas }: Props) {
                 type="number"
                 className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-emerald-500 outline-none transition"
                 placeholder="0.00"
-                value={form.precio_base}
-                onChange={e => setForm({ ...form, precio_base: Number(e.target.value) })}
+                value={form.precio_base || ""}
+                onChange={e => setForm({ ...form, precio_base: parseFloat(e.target.value) || 0 })}
               />
             </div>
             <div>

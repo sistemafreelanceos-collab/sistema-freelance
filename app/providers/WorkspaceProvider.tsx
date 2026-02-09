@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Workspace, WorkspaceMember } from "@/types";
+import { Workspace } from "@/types";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import CreateWorkspaceModal from "../components/modals/CreateWorkspaceModal";
 
 interface WorkspaceContextType {
     workspaces: Workspace[];
@@ -22,59 +23,108 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
     const [currentRole, setCurrentRole] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+
+    // Guardamos el ID del usuario actual para detectar cambios de sesión
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
     const router = useRouter();
 
     const fetchWorkspaces = useCallback(async () => {
-        setIsLoading(true);
+        // Solo mostramos loading global si NO hay datos previos (Carga Inicial)
+        // Esto evita el "pantallazo" al cambiar de ventana
+        if (workspaces.length === 0) setIsLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
 
-            // 1. Obtener workspaces donde soy miembro
-            const { data: members, error: membersError } = await supabase
+            // 🛑 DETECCIÓN DE CAMBIO DE USUARIO
+            // Si el usuario cambió (o se deslogueó), limpiamos todo inmediatamente
+            if (!user) {
+                setWorkspaces([]);
+                setCurrentWorkspace(null);
+                setCurrentUserId(null);
+                localStorage.removeItem('onyx_workspace_id'); // Limpiar rastro anterior
+                setIsLoading(false);
+                return;
+            }
+
+            // Si es un usuario nuevo distinto al anterior, reseteamos estados visuales
+            if (currentUserId && currentUserId !== user.id) {
+                console.log("Cambio de usuario detectado, limpiando...");
+                setWorkspaces([]);
+                setCurrentWorkspace(null);
+            }
+            setCurrentUserId(user.id);
+
+            // Consulta de workspaces
+            const { data: members, error } = await supabase
                 .from('workspace_members')
                 .select('workspace_id, role, workspaces(*)')
                 .eq('user_id', user.id);
 
-            if (membersError) {
-                console.error("Error fetching workspaces:", membersError);
-                // No mostrar error toast si es porque la tabla no existe aún (durante migración)
-                if (membersError.code !== '42P01') {
-                    toast.error("Error cargando empresas");
-                }
+            if (error) {
+                console.error("Error fetching workspaces:", error);
+                setIsLoading(false);
                 return;
             }
 
             if (members && members.length > 0) {
-                // Mapear resultado para extraer el objeto workspace limpio
-                const loadedWorkspaces = members.map((m: any) => m.workspaces) as Workspace[];
+                // Filtramos nulls por si acaso alguna relación está rota
+                const loadedWorkspaces = members
+                    .map((m: any) => m.workspaces)
+                    .filter((w: any) => w !== null) as Workspace[];
+
                 setWorkspaces(loadedWorkspaces);
 
-                // 2. Determinar workspace activo
+                // 🛡️ LÓGICA ANTI-MEZCLA
+                // Solo usamos el ID del localStorage si REALMENTE pertenece a este usuario
                 const storedWorkspaceId = localStorage.getItem('onyx_workspace_id');
-                const lastActive = loadedWorkspaces.find(w => w.id === storedWorkspaceId) || loadedWorkspaces[0];
+                const workspaceValido = loadedWorkspaces.find(w => w.id === storedWorkspaceId);
 
-                setCurrentWorkspace(lastActive);
+                const active = workspaceValido || loadedWorkspaces[0];
 
-                // Setear el rol actual para el workspace activo
-                const activeMember = members.find((m: any) => m.workspace_id === lastActive.id);
+                setCurrentWorkspace(active);
+
+                // Buscar rol
+                const activeMember = members.find((m: any) => m.workspace_id === active.id);
                 setCurrentRole(activeMember?.role || 'viewer');
 
-                // Guardar en local storage por si acaso
-                if (lastActive) localStorage.setItem('onyx_workspace_id', lastActive.id);
+                // Actualizar localStorage con el dato CONFIRMADO y SEGURO
+                if (active) localStorage.setItem('onyx_workspace_id', active.id);
+
+                setShowCreateModal(false);
             } else {
-                // Caso raro: Usuario sin workspace (si falló migración)
+                // Si no tiene empresas, limpiamos y pedimos crear
                 setWorkspaces([]);
                 setCurrentWorkspace(null);
+                localStorage.removeItem('onyx_workspace_id');
+                setShowCreateModal(true);
             }
-
         } catch (error) {
-            console.error("Workspace Provider Logic Error:", error);
+            console.error("Critical Workspace Error:", error);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [currentUserId]); // Dependencia clave
 
+    // Escuchar cambios de autenticación en tiempo real
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_OUT') {
+                setWorkspaces([]);
+                setCurrentWorkspace(null);
+                setCurrentUserId(null);
+                localStorage.removeItem('onyx_workspace_id');
+                router.push('/');
+            } else if (event === 'SIGNED_IN') {
+                fetchWorkspaces();
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [fetchWorkspaces, router]);
+
+    // Carga inicial
     useEffect(() => {
         fetchWorkspaces();
     }, [fetchWorkspaces]);
@@ -86,8 +136,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             localStorage.setItem('onyx_workspace_id', target.id);
             toast.success(`Cambiado a: ${target.name}`);
 
-            // Recargar para refrescar data de otros hooks que dependen del workspace_id
-            // Opcional: Podríamos hacer soft refresh si los hooks escuchan el context ID
+            // Recarga suave para actualizar componentes dependientes
             window.location.reload();
         }
     };
@@ -102,14 +151,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             refreshWorkspaces: fetchWorkspaces
         }}>
             {children}
+
+            <CreateWorkspaceModal
+                isOpen={showCreateModal && !isLoading}
+                onClose={() => {
+                    if (workspaces.length > 0) setShowCreateModal(false);
+                }}
+            />
         </WorkspaceContext.Provider>
     );
 }
 
 export function useWorkspace() {
     const context = useContext(WorkspaceContext);
-    if (context === undefined) {
-        throw new Error("useWorkspace must be used within a WorkspaceProvider");
-    }
+    if (context === undefined) throw new Error("useWorkspace must be used within a WorkspaceProvider");
     return context;
 }

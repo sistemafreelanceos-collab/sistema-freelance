@@ -10,14 +10,10 @@ export function useFinanzas() {
     const { currentWorkspace } = useWorkspace();
     const { logEvent } = useLogger();
 
-    // 1. QUERY PRINCIPAL (Carga todos los datos financieros)
+    // 1. QUERY PRINCIPAL
     const { data, isLoading, error } = useQuery({
-        // La clave incluye el ID para que se refresque al cambiar de empresa
         queryKey: ['finanzas', currentWorkspace?.id],
-
-        // 🛑 ESTA ES LA SOLUCIÓN: Solo ejecuta si existe un workspace seleccionado
         enabled: !!currentWorkspace?.id,
-
         queryFn: async () => {
             if (!currentWorkspace?.id) throw new Error("No workspace selected");
 
@@ -25,48 +21,15 @@ export function useFinanzas() {
             const { data: { session } } = await supabase.auth.getSession();
             const uid = session?.user.id;
 
-            // Consultas en Paralelo (Más rápido)
             const [movs, fijos, presus, conf, ctas, perfil] = await Promise.all([
-                // Movimientos: Estrictamente filtrados por Workspace
-                supabase.from("movimientos")
-                    .select("*")
-                    .eq("workspace_id", wsId)
-                    .order('fecha', { ascending: false })
-                    .order('created_at', { ascending: false })
-                    .limit(2000),
-
-                // Gastos Fijos: Por Workspace
-                supabase.from("gastos_fijos")
-                    .select("*")
-                    .eq("workspace_id", wsId)
-                    .eq("activo", true),
-
-                // Presupuestos: Por Workspace
-                supabase.from("presupuestos")
-                    .select("*")
-                    .eq("workspace_id", wsId),
-
-                // Configuración: Por Workspace (o fallback al usuario)
-                // Nota: Si config_finanzas tiene workspace_id, usarlo. Si no, fallback a owner_id como antes
-                // Asumimos que la tabla config_finanzas aún usa owner_id según esquemas previos, pero intentamos wsId si existe columna
-                supabase.from("config_finanzas")
-                    .select("*")
-                    .eq("owner_id", uid) // Mantenemos owner_id por seguridad si no se migró la tabla config
-                    .maybeSingle(),
-
-                // Cuentas: Por ahora globales del usuario (owner_id)
-                supabase.from("cuentas")
-                    .select("id, nombre")
-                    .eq("owner_id", uid),
-
-                // Perfil: Para la moneda
-                supabase.from("profiles")
-                    .select("meta_moneda")
-                    .eq("id", uid)
-                    .single()
+                supabase.from("movimientos").select("*").eq("workspace_id", wsId).order('fecha', { ascending: false }).limit(2000),
+                supabase.from("gastos_fijos").select("*").eq("workspace_id", wsId).eq("activo", true),
+                supabase.from("presupuestos").select("*").eq("workspace_id", wsId),
+                supabase.from("config_finanzas").select("*").eq("owner_id", uid).maybeSingle(),
+                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid),
+                supabase.from("profiles").select("meta_moneda").eq("id", uid).single()
             ]);
 
-            // Procesar nombres de cuentas en los movimientos
             let movimientosProcessed: Movimiento[] = [];
             if (movs.data && ctas.data) {
                 const mapCuentas = new Map(ctas.data.map((c: any) => [c.id, c.nombre]));
@@ -76,33 +39,31 @@ export function useFinanzas() {
                 }));
             }
 
-            // Configuración por defecto
-            const baseConfig = conf.data || { owner_id: uid, porcentaje_ahorro: 10, meta_mensual: 0 };
-
             return {
                 movimientos: movimientosProcessed,
                 gastosFijos: (fijos.data || []) as GastoFijo[],
                 presupuestos: (presus.data || []) as Presupuesto[],
                 cuentas: (ctas.data || []) as Cuenta[],
-                config: { ...baseConfig, meta_moneda: perfil.data?.meta_moneda || "USD" }
+                config: { ...conf.data, meta_moneda: perfil.data?.meta_moneda || "USD" }
             };
         }
     });
 
-    // --- MUTATIONS (Guardar/Editar/Borrar) ---
+    // --- MUTATIONS CORREGIDAS (SIN owner_id) ---
 
     const guardarMovimientoMutation = useMutation({
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
             if (!currentWorkspace?.id) throw new Error("No workspace");
 
-            const payload = { ...data, workspace_id: currentWorkspace.id }; // Inyectar ID
-            const { data: { session } } = await supabase.auth.getSession();
+            // Solo enviamos workspace_id
+            const payload = { ...data, workspace_id: currentWorkspace.id };
 
             if (id) {
                 const { error } = await supabase.from("movimientos").update(payload).eq("id", id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from("movimientos").insert({ owner_id: session?.user.id, ...payload });
+                // 🛑 CORRECCIÓN: Quitamos owner_id del insert
+                const { error } = await supabase.from("movimientos").insert(payload);
                 if (error) throw error;
             }
         },
@@ -111,7 +72,6 @@ export function useFinanzas() {
             queryClient.invalidateQueries({ queryKey: ['finanzas'] });
             queryClient.invalidateQueries({ queryKey: ['cuentas'] });
 
-            // 📝 BITÁCORA DETALLADA
             const monto = parseFloat(vars.data.monto).toLocaleString();
             const emoji = vars.data.tipo === 'ingreso' ? '💰' : '💸';
             const accion = vars.id ? "Actualizó" : "Registró";
@@ -128,10 +88,10 @@ export function useFinanzas() {
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
             if (!currentWorkspace?.id) throw new Error("No workspace");
             const payload = { ...data, workspace_id: currentWorkspace.id };
-            const { data: { session } } = await supabase.auth.getSession();
 
             if (id) await supabase.from("presupuestos").update(payload).eq("id", id);
-            else await supabase.from("presupuestos").insert({ owner_id: session?.user.id, ...payload });
+            // 🛑 CORRECCIÓN: Quitamos owner_id del insert
+            else await supabase.from("presupuestos").insert(payload);
         },
         onSuccess: () => {
             toast.success("Presupuesto guardado");
@@ -142,14 +102,15 @@ export function useFinanzas() {
     const guardarGastoFijoMutation = useMutation({
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
             if (!currentWorkspace?.id) throw new Error("No workspace");
+
             const { fecha_inicio, ...resto } = data;
             const payload = { ...resto, workspace_id: currentWorkspace.id };
+
             if (payload.cuenta_id === "") payload.cuenta_id = null;
 
-            const { data: { session } } = await supabase.auth.getSession();
-
             if (id) await supabase.from("gastos_fijos").update(payload).eq("id", id);
-            else await supabase.from("gastos_fijos").insert({ owner_id: session?.user.id, ...payload, activo: true });
+            // 🛑 CORRECCIÓN CRÍTICA: Quitamos owner_id del insert
+            else await supabase.from("gastos_fijos").insert({ ...payload, activo: true });
         },
         onSuccess: () => {
             toast.success("Gasto fijo guardado");

@@ -21,6 +21,9 @@ export default function SuscripcionPage() {
   const [accionando, setAccionando] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
 
+  // DIAGNÓSTICO: Guardar error para mostrarlo en pantalla
+  const [debugError, setDebugError] = useState<any>(null);
+
   // Simulación de facturas (luego vendrán de Stripe)
   const facturas = [
     { id: 1024, fecha: "12 Ene, 2026", monto: "$29.00 USD", estado: "Pagado" },
@@ -48,6 +51,8 @@ export default function SuscripcionPage() {
         return;
       }
 
+      console.log("Intentando cargar perfil para usuario:", session.user.id);
+
       const { data, error } = await supabase
         .from("profiles")
         .select("id,email,nombre,plan,plan_status,plan_renovacion")
@@ -55,8 +60,12 @@ export default function SuscripcionPage() {
         .single();
 
       if (error) {
-        toast.error("No se pudo cargar tu suscripción. Revisa profiles/RLS.");
-        console.error(error);
+        console.error("Error cargando suscripción:", error);
+        setDebugError(error); // Guardar error para mostrarlo
+        toast.error(`Error: ${error.message} (Código: ${error.code})`);
+
+        // Auto-fix attempt in frontend: If duplicate key or generic error, maybe retry or ignore? 
+        // No, we need SQL fix.
         setCargando(false);
         return;
       }
@@ -70,7 +79,10 @@ export default function SuscripcionPage() {
 
   // Demo: cambiar plan sin Stripe (para test)
   const cambiarPlanDemo = async () => {
-    if (!profile) return;
+    if (!profile) {
+      toast.error("No se ha cargado el perfil, no se puede cambiar plan.");
+      return;
+    }
     setAccionando(true);
 
     const nuevoPlan: Plan = profile.plan === "gratis" ? "premium" : "gratis";
@@ -131,7 +143,7 @@ export default function SuscripcionPage() {
   if (cargando) {
     return (
       <div className="max-w-5xl mx-auto">
-        <div className="bg-[#161B22] border border-white/10 rounded-2xl p-8 text-gray-300">
+        <div className="bg-[#161B22] border border-white/10 rounded-2xl p-8 text-gray-300 animate-pulse">
           Cargando suscripción...
         </div>
       </div>
@@ -153,6 +165,19 @@ export default function SuscripcionPage() {
           <p className="text-gray-400 text-sm">Gestiona tu plan y facturación.</p>
         </div>
       </div>
+
+      {/* DEBUG PANEL - SOLO DEBE APARECER SI HAY ERROR */}
+      {debugError && (
+        <div className="mb-8 bg-red-500/10 border border-red-500/40 p-4 rounded-xl text-red-200">
+          <h3 className="font-bold mb-2 flex items-center gap-2">❌ Error de Diagnóstico</h3>
+          <p className="text-sm font-mono break-all">Message: {debugError.message}</p>
+          <p className="text-sm font-mono">Code: {debugError.code}</p>
+          <p className="text-xs mt-2 text-red-300/70">
+            {debugError.code === 'PGRST116' && "Significado: Row Not Found (Falta tu perfil en BD). Ejecuta backfill_missing_profiles.sql"}
+            {debugError.code === '42501' && "Significado: Permiso denegado. Ejecuta fix_profiles_rls.sql"}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* IZQ */}
@@ -208,8 +233,8 @@ export default function SuscripcionPage() {
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={cambiarPlanDemo}
-                disabled={accionando}
-                className="bg-white text-black font-bold px-6 py-2.5 rounded-lg hover:bg-gray-200 transition text-sm disabled:opacity-60"
+                disabled={accionando || !profile}
+                className="bg-white text-black font-bold px-6 py-2.5 rounded-lg hover:bg-gray-200 transition text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {accionando ? "Procesando..." : isPremium ? "Bajar a Gratis (Demo)" : "Mejorar a Pro (Demo)"}
               </button>
@@ -217,13 +242,15 @@ export default function SuscripcionPage() {
               {isPremium && (
                 <button
                   onClick={cancelarDemo}
-                  disabled={accionando}
+                  disabled={accionando || !profile}
                   className="border border-red-500/30 text-red-400 px-6 py-2.5 rounded-lg hover:bg-red-500/10 transition text-sm disabled:opacity-60"
                 >
                   Cancelar Suscripción (Demo)
                 </button>
               )}
             </div>
+
+            {!profile && <p className="text-red-400 text-xs mt-2">⚠ No se puede cambiar el plan porque el perfil no cargó.</p>}
 
             {!isPremium && (
               <div className="mt-5 text-xs text-gray-300 border border-white/10 bg-black/20 rounded-xl p-3">
