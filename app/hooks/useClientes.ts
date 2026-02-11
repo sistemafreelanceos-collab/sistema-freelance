@@ -120,8 +120,25 @@ export function useClientes() {
         setQuery,
         crearCliente: (c: Cliente) => crearClienteMutation.mutateAsync(c),
         crearProyecto: (p: Proyecto) => crearProyectoMutation.mutateAsync(p),
-        actualizarProyecto: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
-        registrarPago: async () => { },
+        actualizarProyecto: async (proyecto: Proyecto) => {
+            // Lógica básica de actualización e invalidación
+            if (!proyecto.id) return;
+            const { id, gastos, pagos_cliente, ...payload } = proyecto as any;
+            await supabase.from("proyectos").update(payload).eq("id", id);
+            toast.success("Proyecto actualizado");
+            queryClient.invalidateQueries({ queryKey: ['clientes'] });
+        },
+        registrarPago: async (pago: any, clienteActualizado: Cliente) => {
+            // Lógica para registrar pago y actualizar cliente
+            if (!clienteActualizado.id) return;
+            // Aquí idealmente iría la lógica real de inserción de pago
+            await supabase.from("pagos_cliente").insert({
+                ...pago,
+                cliente_id: clienteActualizado.id
+            });
+            queryClient.invalidateQueries({ queryKey: ['clientes'] });
+            toast.success("Pago registrado");
+        },
         eliminarCliente,
         eliminarProyecto,
         actualizarClienteLocal: () => queryClient.invalidateQueries({ queryKey: ['clientes'] })

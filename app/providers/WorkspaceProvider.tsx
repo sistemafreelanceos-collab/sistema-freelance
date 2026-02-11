@@ -157,6 +157,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 onClose={() => {
                     if (workspaces.length > 0) setShowCreateModal(false);
                 }}
+                onSuccess={async (newId) => {
+                    await fetchWorkspaces();
+                    await switchWorkspace(newId);
+                    setShowCreateModal(false);
+                }}
             />
         </WorkspaceContext.Provider>
     );

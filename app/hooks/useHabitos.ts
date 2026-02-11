@@ -8,7 +8,7 @@ export function useHabitos() {
     const { currentWorkspace } = useWorkspace();
     const [userId, setUserId] = useState("");
     const [proyectos, setProyectos] = useState<{ id: string, nombre: string }[]>([]);
-    const [userXP, setUserXP] = useState<UserXP>({ xp_total: 0, nivel: 1 });
+    const [userXP, setUserXP] = useState<UserXP>({ xp_total: 0, nivel: 1 } as UserXP);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -23,7 +23,7 @@ export function useHabitos() {
             // Cargar Proyectos (Del Workspace actual) y XP (Del Usuario global)
             const [resProyectos, resXP] = await Promise.all([
                 supabase.from("proyectos").select("id, nombre").eq("workspace_id", currentWorkspace.id),
-                supabase.from("user_xp").select("xp_total, nivel").eq("owner_id", uid).single()
+                supabase.from("user_xp").select("*").eq("owner_id", uid).single()
             ]);
 
             setProyectos(resProyectos.data || []);
@@ -47,9 +47,9 @@ export function useHabitos() {
             nuevoNivel++;
             toast.success(`🎉 ¡SUBISTE A NIVEL ${nuevoNivel}! 🎉`);
         }
-        const newData = { xp_total: nuevoXP, nivel: nuevoNivel };
+        const newData = { ...userXP, xp_total: nuevoXP, nivel: nuevoNivel };
         setUserXP(newData);
-        await supabase.from("user_xp").update(newData).eq("owner_id", userId);
+        await supabase.from("user_xp").update({ xp_total: nuevoXP, nivel: nuevoNivel }).eq("owner_id", userId);
     };
 
     return {
