@@ -156,9 +156,9 @@ export default function CalendarioPage() {
                 <div className="flex justify-between items-end mb-4">
                     <div><h1 className="text-3xl font-bold text-white">Agenda Operativa</h1><p className="text-gray-400 text-sm">Finanzas, Proyectos y Tiempo.</p></div>
                     <div className="flex gap-2">
-                        <button onClick={() => syncGoogle(false)} className="bg-white/5 text-gray-400 px-3 py-2 rounded-lg hover:text-white hover:bg-[#DB4437]/20 transition flex items-center gap-2" title="Sincronizar Google Calendar">
-                            <ArrowPathIcon className="w-5 h-5 text-[#DB4437]" />
-                            <span className="text-xs font-medium text-[#DB4437] hidden sm:inline">Sync Google</span>
+                        <button onClick={() => toast.info("Integración Google Calendar: Próximamente")} className="bg-white/5 text-gray-500 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 flex items-center gap-2" title="Próximamente">
+                            <ArrowPathIcon className="w-5 h-5" />
+                            <span className="text-xs font-medium hidden sm:inline">Sync Google</span>
                         </button>
                         <button onClick={descargarICS} className="bg-white/5 text-gray-400 px-3 py-2 rounded-lg hover:text-white transition" title="Exportar iCal"><ArrowDownTrayIcon className="w-5 h-5" /></button>
                         <button onClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: new Date().toISOString().split('T')[0], hora: "09:00", categoria: "Diseño", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('tarea'); setEventoAEditar(null); setModalAbierto(true); }} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition shadow-lg flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Agendar</button>

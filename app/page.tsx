@@ -281,7 +281,7 @@ export default function LoginPage() {
                 {isRegister ? "Crear Cuenta" : "Ingresar"}
               </button>
 
-              <div className="relative my-6">
+              <div className="relative my-6 opacity-50">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-gray-800" />
                 </div>
@@ -292,10 +292,10 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={handleGoogleLogin}
-                className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-100 transition flex items-center justify-center gap-2"
+                onClick={() => toast.info("Entrar con Google: Próximamente")}
+                className="w-full py-3 bg-white/10 text-gray-500 font-bold rounded-xl cursor-not-allowed transition flex items-center justify-center gap-2 opacity-50"
               >
-                <img src="https://authjs.dev/img/providers/google.svg" className="w-5 h-5" alt="Google" />
+                <img src="https://authjs.dev/img/providers/google.svg" className="w-5 h-5 grayscale opacity-50" alt="Google" />
                 Google
               </button>
 

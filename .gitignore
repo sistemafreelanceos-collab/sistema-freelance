@@ -41,4 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
-.env*.local
+# PWA files
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/worker-*.js
