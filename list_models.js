@@ -1,12 +1,30 @@
+const https = require('https');
 
-async function main() {
-    try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyBNF1USZg7mKr3UHLeY9AFac5CuCbeRmVI");
-        const data = await response.json();
-        console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-        console.error(err);
-    }
-}
+const apiKey = "AIzaSyDjeN8zA2QRyqcET5j1crjgMx7XOxhWMaI";
+const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
 
-main();
+https.get(url, (res) => {
+    let data = '';
+    res.on('data', (chunk) => data += chunk);
+    res.on('end', () => {
+        try {
+            const json = JSON.parse(data);
+            if (json.error) {
+                console.error("API Error:", json.error.message);
+            } else if (json.models) {
+                console.log("AVAILABLE MODELS:");
+                json.models.forEach(m => {
+                    if (m.supportedGenerationMethods.includes("generateContent")) {
+                        console.log(`- ${m.name}`);
+                    }
+                });
+            } else {
+                console.log("No models found or unexpected response:", json);
+            }
+        } catch (e) {
+            console.error("Parse Error:", e.message);
+        }
+    });
+}).on('error', (e) => {
+    console.error("Request Error:", e.message);
+});

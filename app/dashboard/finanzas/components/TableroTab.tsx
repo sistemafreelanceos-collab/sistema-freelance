@@ -82,7 +82,7 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
 
             {/* 0. CFO VIRTUAL (AI) */}
-            <CFOVirtual movimientos={movimientos} presupuestos={presupuestos} gastosFijos={gastosFijos} config={config} />
+            <CFOVirtual />
 
             {/* 1. TARJETAS KPI (Nombres Simplificados) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

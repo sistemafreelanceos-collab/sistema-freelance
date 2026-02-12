@@ -4,13 +4,19 @@ import { supabase } from "../../../../lib/supabaseClient";
 
 interface Props {
   cliente: Cliente;
-  onEliminarCliente: (id: string) => void;
-  onEliminarProyecto: (projId: string, clienteId: string) => void;
-  onOpenProyecto: (c: Cliente) => void;
-  onUpdateClienteLocal: (c: Cliente) => void;
-  onVerDetalleProyecto: (p: Proyecto, c: Cliente) => void;
-  onOpenPago: (c: Cliente) => void;
-  onVerCliente: (c: Cliente) => void;
+  // Props from new page.tsx
+  onNuevoProyecto?: (p: any) => any;
+  onUpdate?: (p: any) => any;
+  onClienteUpdated?: () => void;
+
+  // Legacy/Optional props
+  onEliminarCliente?: (id: string) => void;
+  onEliminarProyecto?: (projId: string, clienteId: string) => void;
+  onOpenProyecto?: (c: Cliente) => void;
+  onUpdateClienteLocal?: (c: Cliente) => void;
+  onVerDetalleProyecto?: (p: Proyecto, c: Cliente) => void;
+  onOpenPago?: (c: Cliente) => void;
+  onVerCliente?: (c: Cliente) => void;
 }
 
 const STATUS_COLORS: Record<EstadoProyecto, string> = {
@@ -27,7 +33,19 @@ const FREQ_LABELS: Record<string, string> = {
   semanal: "Semanal"
 };
 
-export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarProyecto, onOpenProyecto, onUpdateClienteLocal, onVerDetalleProyecto, onVerCliente }: Props) {
+export default function TarjetaCliente({
+  cliente,
+  onEliminarCliente,
+  onEliminarProyecto,
+  onOpenProyecto,
+  onUpdateClienteLocal,
+  onVerDetalleProyecto,
+  onVerCliente,
+  // New props mapping
+  onNuevoProyecto,
+  onUpdate,
+  onClienteUpdated
+}: Props) {
 
   const rotarEstado = async (p: Proyecto, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,8 +53,14 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
     const nextState = estados[(estados.indexOf(p.estado) + 1) % estados.length];
 
     await supabase.from("proyectos").update({ estado: nextState }).eq("id", p.id);
-    const nuevosProyectos = cliente.proyectos?.map(proj => proj.id === p.id ? { ...proj, estado: nextState } : proj);
-    onUpdateClienteLocal({ ...cliente, proyectos: nuevosProyectos });
+
+    // Call updates
+    if (onUpdate) onUpdate(p);
+    if (onClienteUpdated) onClienteUpdated();
+    if (onUpdateClienteLocal) {
+      const nuevosProyectos = cliente.proyectos?.map(proj => proj.id === p.id ? { ...proj, estado: nextState } : proj);
+      onUpdateClienteLocal({ ...cliente, proyectos: nuevosProyectos });
+    }
   };
 
   const formatDateShort = (f?: string) => {
@@ -51,11 +75,9 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
 
     // 1. CASO PAGADO (Prioridad)
     if (estaPagado) {
-      // Si es recurrente, la fecha ya se movió al futuro, así que es el "Próximo Pago"
       if (frecuencia !== "unidad") {
         return { label: "Próx. Pago: ", class: "text-blue-300 font-medium" };
       }
-      // Si es pago único, ya finalizó el cobro
       return { label: "✅ Pagado: ", class: "text-emerald-400 font-bold" };
     }
 
@@ -76,7 +98,6 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
       return { label: "⚠️ Por Vencer: ", class: "text-yellow-400 font-bold" };
     }
 
-    // Si falta mucho y no está pagado
     return { label: "Próx. Pago: ", class: "text-gray-400" };
   };
 
@@ -85,12 +106,14 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
   return (
     <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:border-emerald-500/30 transition group shadow-xl flex flex-col justify-between relative">
 
-      <button onClick={(e) => { e.stopPropagation(); onEliminarCliente(cliente.id); }} className="absolute top-4 right-4 text-gray-500 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition z-10">🗑️</button>
+      {onEliminarCliente && (
+        <button onClick={(e) => { e.stopPropagation(); onEliminarCliente(cliente.id); }} className="absolute top-4 right-4 text-gray-500 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition z-10">🗑️</button>
+      )}
 
       <div>
         <div
-          onClick={() => onVerCliente(cliente)}
-          className="flex items-center gap-3 mb-5 cursor-pointer group/header hover:bg-white/5 p-2 -m-2 rounded-xl transition"
+          onClick={() => onVerCliente && onVerCliente(cliente)}
+          className={`flex items-center gap-3 mb-5 group/header hover:bg-white/5 p-2 -m-2 rounded-xl transition ${onVerCliente ? 'cursor-pointer' : ''}`}
           title="Ver detalles del cliente"
         >
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-black border border-white/10 flex items-center justify-center font-bold text-white group-hover/header:scale-110 transition shadow-lg">
@@ -99,9 +122,6 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
           <div className="flex-1">
             <h3 className="text-lg font-bold text-white leading-tight group-hover/header:text-emerald-400 transition">{cliente.nombre}</h3>
             <p className="text-xs text-gray-400">{cliente.empresa || "Particular"}</p>
-          </div>
-          <div className="opacity-0 group-hover/header:opacity-100 text-gray-500">
-            ℹ️
           </div>
         </div>
 
@@ -112,15 +132,13 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
               const porcentajePago = Math.min((pagado / (p.monto || 1)) * 100, 100);
               const estaPagado = pagado >= p.monto && p.monto > 0;
               const freq = FREQ_LABELS[p.frecuencia_pago || "unidad"] || "Único";
-
-              // Calculamos el estado con la nueva lógica
               const fechaStatus = getFechaStatus(p.fecha_inicio, estaPagado, p.frecuencia_pago);
 
               return (
                 <div
                   key={p.id}
-                  onClick={() => onVerDetalleProyecto(p, cliente)}
-                  className={`p-3 rounded-xl border transition cursor-pointer relative overflow-hidden flex-shrink-0 ${estaPagado ? 'bg-emerald-900/10 border-emerald-500/20' : 'bg-black/20 border-white/5 hover:border-white/20'}`}
+                  onClick={() => onVerDetalleProyecto && onVerDetalleProyecto(p, cliente)}
+                  className={`p-3 rounded-xl border transition relative overflow-hidden flex-shrink-0 ${estaPagado ? 'bg-emerald-900/10 border-emerald-500/20' : 'bg-black/20 border-white/5 hover:border-white/20'} ${onVerDetalleProyecto ? 'cursor-pointer' : ''}`}
                 >
                   <div className="flex justify-between items-center mb-2 relative z-10">
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -130,15 +148,12 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
                     <span className="text-[10px] text-gray-500 bg-black/30 px-1.5 rounded">{freq}</span>
                   </div>
 
-                  {/* Fila 2: Fechas INTELIGENTES */}
                   <div className="flex justify-between text-[10px] mb-2 relative z-10">
                     <span className={`${fechaStatus.class} transition-colors`}>
                       {fechaStatus.label}{formatDateShort(p.fecha_inicio)}
                     </span>
-                    {p.entregables_totales > 0 && <span className="text-gray-400">📦 {p.entregables_listos}/{p.entregables_totales}</span>}
                   </div>
 
-                  {/* Fila 3: Barra de Progreso */}
                   <div className="relative z-10">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className={estaPagado ? "text-emerald-400 font-bold" : "text-gray-400"}>
@@ -160,11 +175,13 @@ export default function TarjetaCliente({ cliente, onEliminarCliente, onEliminarP
         )}
       </div>
 
-      <div className="mt-2 pt-3 border-t border-white/5">
-        <button onClick={() => onOpenProyecto(cliente)} className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg py-3 text-xs font-bold transition flex justify-center gap-2">
-          ⚡ Agregar Proyecto
-        </button>
-      </div>
+      {onOpenProyecto && (
+        <div className="mt-2 pt-3 border-t border-white/5">
+          <button onClick={() => onOpenProyecto(cliente)} className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg py-3 text-xs font-bold transition flex justify-center gap-2">
+            ⚡ Agregar Proyecto
+          </button>
+        </div>
+      )}
     </div>
   );
 }

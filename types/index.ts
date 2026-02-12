@@ -14,6 +14,7 @@ export type Proyecto = {
     cliente_id: string;
     entregables_totales: number;
     entregables_listos: number;
+    descripcion?: string; // Added for project details
     gastos?: { monto: number }[];
     // NUEVO: Historial de pagos específico del proyecto
     pagos_cliente?: {

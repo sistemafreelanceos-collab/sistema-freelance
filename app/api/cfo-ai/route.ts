@@ -1,49 +1,61 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   try {
-    const { movimientos, presupuestos, gastosFijos, config } = await req.json();
+    const { question, financialContext } = await req.json();
 
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
-      return NextResponse.json({ error: "API Key no configurada" }, { status: 500 });
+      return NextResponse.json({ reply: "Falta la API Key" }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `
-      Actúa como un experto CFO Virtual para un freelancer. Analiza los siguientes datos financieros y dame 3 consejos CLAROS, BREVES y ACCIONABLES para mejorar mi situación financiera este mes.
-      
-      IMPORTANTE:
-      - Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
-      {
-        "consejos": [
-          { "titulo": "Título corto", "descripcion": "Explicación breve", "icono": "ahorro" | "alerta" | "inversion" }
-        ],
-        "resumen": "Un resumen de 1 linea del estado actual"
+    // Intentamos los modelos disponibles (secuencia de fallback)
+    const modelsToTry = ["gemini-2.0-flash-001", "gemini-2.5-flash"];
+
+    let lastError: any = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`Intentando modelo: ${modelName}`);
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        const prompt = `
+          Eres 'Onyx', el CFO (Director Financiero) de este negocio.
+          
+          Instrucciones:
+          1. Analiza los DATOS: ${JSON.stringify(financialContext)}
+          2. Responde a: "${question}"
+          3. Sé directo, breve y estratégico. Usa emojis 📊.
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+
+        return NextResponse.json({ reply: response.text() });
+
+      } catch (error: any) {
+        console.error(`Error con modelo ${modelName}:`, error.message);
+        lastError = error;
+        // Continuamos con el siguiente modelo en la lista
+        continue;
       }
-      - No incluyas markdown, solo el JSON raw.
-      - Sé directo. Si hay gastos excesivos, dilo. Si hay oportunidad de ahorro, dila.
-      
-      DATOS:
-      - Configuración: ${JSON.stringify(config)}
-      - Presupuestos: ${JSON.stringify(presupuestos)}
-      - Gastos Fijos (Recurrentes): ${JSON.stringify(gastosFijos)}
-      - Movimientos recientes (Resumidos): ${JSON.stringify(movimientos.slice(0, 50))} (Solo últimos 50)
-    `;
+    }
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    // Si llegamos aquí, fallaron todos
+    throw lastError;
 
-    // Limpiar posible markdown ```json ... ```
-    const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
-    return NextResponse.json(JSON.parse(jsonString));
   } catch (error: any) {
-    console.error("Error en CFO AI:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("CFO Error Final:", error);
+
+    return NextResponse.json(
+      { reply: `Onyx no pudo conectarse. Error final: ${error.message}` },
+      { status: 500 }
+    );
   }
 }
