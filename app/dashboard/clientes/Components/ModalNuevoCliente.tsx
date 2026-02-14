@@ -33,7 +33,6 @@ export default function ModalNuevoCliente({ isOpen, onClose, onClienteCreado, us
         empresa: form.empresa,
         email: form.email,
         telefono: form.telefono,
-        telefono: form.telefono,
         nota: form.notas, // 🟢 CORREGIDO: Singular para la BD
         estado: 'activo',
         moneda: 'USD',
