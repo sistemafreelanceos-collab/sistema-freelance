@@ -11,7 +11,7 @@ import {
     ArrowTrendingDownIcon,
     WalletIcon
 } from "@heroicons/react/24/solid";
-import { Movimiento, GastoFijo, ConfigFinanzas } from "../../../../types";
+import { Movimiento, GastoFijo, ConfigFinanzas, Presupuesto } from "../../../../types";
 
 import CFOVirtual from "./CFOVirtual";
 import FinancialProjectionChart from "./FinancialProjectionChart";
@@ -21,6 +21,7 @@ interface Props {
     gastosFijos: GastoFijo[];
     config: ConfigFinanzas;
     saldoActual: number;
+    presupuestos: Presupuesto[]; // Por si se necesita en el futuro
     onUpdateConfig: (key: string, val: number) => void;
     onOpenModal: () => void;
     onEdit: (mov: Movimiento) => void;
