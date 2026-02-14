@@ -21,13 +21,14 @@ interface SidebarProps {
     mobileMenuOpen: boolean;
     setMobileMenuOpen: (open: boolean) => void;
     planUsuario: "gratis" | "premium";
+    userRole?: "user" | "admin"; // Nuevo prop opcional
 }
 
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
 // ...
 
-export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen, planUsuario }: SidebarProps) {
+export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen, planUsuario, userRole = "user" }: SidebarProps) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
 
@@ -42,6 +43,12 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen, planUsuario
         setCollapsed(newState);
         localStorage.setItem("sidebar-collapsed", String(newState));
     };
+
+    // Construimos el menú dinámico
+    const items = [...MENU_ITEMS];
+    if (userRole === "admin") {
+        items.push({ ruta: "/dashboard/admin", icon: "🏰", label: "Admin" });
+    }
 
     return (
         <aside
@@ -59,7 +66,7 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen, planUsuario
             </div>
 
             <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto scrollbar-hide">
-                {MENU_ITEMS.map((item) => (
+                {items.map((item) => (
                     <Link
                         key={item.ruta}
                         id={

@@ -78,8 +78,7 @@ export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, us
         fecha_fin: form.fecha_fin || null,
         frecuencia_pago: form.frecuencia,
         estado: "pendiente",
-        entregables_totales: form.entregables_totales,
-        owner_id: userId // Fallback, el hook puede sobreescribirlo o usarlo
+        entregables_totales: form.entregables_totales
       } as any);
 
       onClose();

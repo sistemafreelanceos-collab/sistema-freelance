@@ -96,8 +96,8 @@ export default function EstadisticasPage() {
                         </div>
                         {/* Semáforo Visual */}
                         <div className={`px-3 py-1 rounded-full text-xs font-bold border ${clienteDominante
-                                ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                             }`}>
                             {clienteDominante ? "⚠️ PELIGRO" : "✅ SANO"}
                         </div>
@@ -135,7 +135,7 @@ export default function EstadisticasPage() {
                                 <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
                                     <div
                                         className={`h-full rounded-full ${c.porcentaje > 50 ? 'bg-red-500' :
-                                                c.porcentaje > 25 ? 'bg-yellow-500' : 'bg-emerald-500'
+                                            c.porcentaje > 25 ? 'bg-yellow-500' : 'bg-emerald-500'
                                             }`}
                                         style={{ width: `${c.porcentaje}%` }}
                                     ></div>

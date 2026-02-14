@@ -6,9 +6,15 @@ import {
     PencilIcon,
     TrashIcon,
     CalendarDaysIcon,
-    BanknotesIcon
+    BanknotesIcon,
+    ArrowTrendingUpIcon,
+    ArrowTrendingDownIcon,
+    WalletIcon
 } from "@heroicons/react/24/solid";
 import { Movimiento, GastoFijo, ConfigFinanzas } from "../../../../types";
+
+import CFOVirtual from "./CFOVirtual";
+import FinancialProjectionChart from "./FinancialProjectionChart";
 
 interface Props {
     movimientos: Movimiento[];
@@ -21,12 +27,7 @@ interface Props {
     onDelete: (id: string) => void;
 }
 
-import CFOVirtual from "./CFOVirtual"; // Importar componente
-import FinancialProjectionChart from "./FinancialProjectionChart";
-
-export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config, presupuestos }: Props & { config: ConfigFinanzas & { meta_moneda?: string }, presupuestos: any[] }) {
-    console.log("TableroTab movimientos:", movimientos);
-
+export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config }: Props & { config: ConfigFinanzas & { meta_moneda?: string } }) {
 
     const formatDate = (fechaString: string) => {
         if (!fechaString) return "—";
@@ -41,20 +42,18 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
         const anioActual = hoy.getFullYear();
         const diaHoy = hoy.getDate();
 
+        // Filtramos movimientos de ESTE MES y ESTE AÑO
         const movsMes = movimientos.filter(m => {
             const [y, mn] = m.fecha.split('-').map(Number);
             return (mn - 1) === mesActual && y === anioActual;
         });
 
-        // Cálculos básicos
+        // Calculamos Ingresos y Gastos solo del mes actual
         const ingresosMes = movsMes.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.monto, 0);
-        const gastosMes = movsMes.filter(m => m.tipo === 'egreso').reduce((sum, m) => sum + m.monto, 0);
+        // Sumamos 'gasto' (nuevo) y 'egreso' (viejo) por compatibilidad
+        const gastosMes = movsMes.filter(m => m.tipo === 'gasto' || m.tipo === 'egreso').reduce((sum, m) => sum + m.monto, 0);
 
-        // Ecuación: Ingreso (Total que hubo) - Gasto (Total que salió) = Disponible (Lo que queda hoy)
-        const saldoFinal = saldoActual;
-        const disponibleTotal = saldoActual + gastosMes;
-
-        // 2. CÁLCULO DE COBERTURA (SEMÁFORO)
+        // 2. CÁLCULO DE COBERTURA
         const costoVidaMensual = gastosFijos.filter(gf => gf.activo).reduce((sum, gf) => sum + gf.monto, 0);
         const esCubierto = saldoActual >= costoVidaMensual;
         const faltante = costoVidaMensual - saldoActual;
@@ -64,14 +63,14 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
             .filter(gf => gf.activo)
             .map(gf => {
                 let diasParaPago = gf.dia_pago - diaHoy;
-                if (diasParaPago < 0) diasParaPago += 30;
+                if (diasParaPago < 0) diasParaPago += 30; // Si ya pasó, asumimos mes siguiente aprox
                 return { ...gf, diasParaPago };
             })
             .sort((a, b) => a.diasParaPago - b.diasParaPago)
             .slice(0, 4);
 
         return {
-            resumen: { disponible: disponibleTotal, gastos: gastosMes, final: saldoFinal },
+            resumen: { ingresosMes, gastosMes, saldoTotal: saldoActual },
             cobertura: { esCubierto, faltante, costoVidaMensual },
             proximosPagos: proximos,
             movimientosRecientes: movimientos.slice(0, 10)
@@ -84,50 +83,62 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
             {/* 0. CFO VIRTUAL (AI) */}
             <CFOVirtual />
 
-            {/* 1. TARJETAS KPI (Nombres Simplificados) */}
+            {/* 1. TARJETAS KPI */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                {/* Tarjeta 1: CAMBIADO A "Ingreso" */}
-                <div className="bg-[#161B22] border border-emerald-500/30 p-6 rounded-2xl">
-                    <p className="text-xs text-emerald-400 uppercase font-bold mb-1">Ingreso</p>
+                {/* Tarjeta 1: Ingresos del Mes */}
+                <div className="bg-[#161B22] border border-emerald-500/30 p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/50 transition">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                        <ArrowTrendingUpIcon className="w-16 h-16 text-emerald-500" />
+                    </div>
+                    <p className="text-xs text-emerald-400 uppercase font-bold mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Ingresos este Mes
+                    </p>
                     <p className="text-3xl font-mono text-white font-bold tracking-tight flex items-end gap-2">
-                        $ {resumen.disponible.toLocaleString()} <span className="text-sm text-gray-500 mb-1">{config.meta_moneda || "USD"}</span>
+                        $ {resumen.ingresosMes.toLocaleString()} <span className="text-sm text-gray-500 mb-1">{config.meta_moneda || "USD"}</span>
                     </p>
                 </div>
 
-                {/* Tarjeta 2: Mantenemos Gastos */}
-                <div className="bg-[#161B22] border border-red-500/30 p-6 rounded-2xl">
-                    <p className="text-xs text-red-400 uppercase font-bold mb-1">Gastado este Mes</p>
+                {/* Tarjeta 2: Gastos del Mes */}
+                <div className="bg-[#161B22] border border-red-500/30 p-6 rounded-2xl relative overflow-hidden group hover:border-red-500/50 transition">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                        <ArrowTrendingDownIcon className="w-16 h-16 text-red-500" />
+                    </div>
+                    <p className="text-xs text-red-400 uppercase font-bold mb-1 flex items-center gap-2">
+                        Gastos este Mes
+                    </p>
                     <p className="text-3xl font-mono text-red-400 font-bold tracking-tight flex items-end gap-2">
-                        - $ {resumen.gastos.toLocaleString()} <span className="text-sm text-gray-500/50 mb-1">{config.meta_moneda || "USD"}</span>
+                        - $ {resumen.gastosMes.toLocaleString()} <span className="text-sm text-gray-500/50 mb-1">{config.meta_moneda || "USD"}</span>
                     </p>
                 </div>
 
-                {/* Tarjeta 3: CAMBIADO A "Disponible" */}
-                <div className="bg-gradient-to-br from-indigo-900/40 to-black border border-indigo-500/30 p-6 rounded-2xl shadow-lg shadow-indigo-900/10">
-                    <p className="text-xs text-indigo-300 uppercase font-bold mb-1">Disponible</p>
+                {/* Tarjeta 3: Saldo Actual (Total Real) */}
+                <div className="bg-gradient-to-br from-indigo-900/40 to-black border border-indigo-500/30 p-6 rounded-2xl shadow-lg shadow-indigo-900/10 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <WalletIcon className="w-16 h-16 text-indigo-400" />
+                    </div>
+                    <p className="text-xs text-indigo-300 uppercase font-bold mb-1">Saldo Actual Total</p>
                     <p className="text-3xl font-mono text-white font-bold tracking-tight flex items-end gap-2">
-                        $ {resumen.final.toLocaleString()} <span className="text-sm text-indigo-300/50 mb-1">{config.meta_moneda || "USD"}</span>
+                        $ {resumen.saldoTotal.toLocaleString()} <span className="text-sm text-indigo-300/50 mb-1">{config.meta_moneda || "USD"}</span>
                     </p>
                 </div>
             </div>
 
-            {/* 1.5. CHART PROYECCIÓN FINANCIERA (Nuevo) */}
+            {/* 1.5. CHART PROYECCIÓN FINANCIERA */}
             <FinancialProjectionChart movimientos={movimientos} moneda={config.meta_moneda || "USD"} />
 
             {/* 2. SEMÁFORO Y PRÓXIMOS PAGOS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
                 {/* A. Semáforo */}
                 <div className={`p-6 rounded-2xl border flex flex-col justify-center items-center text-center relative overflow-hidden ${cobertura.esCubierto ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-red-900/10 border-red-500/30'}`}>
                     {cobertura.esCubierto ? (
                         <>
-                            <div className="bg-emerald-500/20 p-4 rounded-full mb-4 animate-pulse">
+                            <div className="bg-emerald-500/20 p-4 rounded-full mb-4">
                                 <CheckCircleIcon className="w-12 h-12 text-emerald-400" />
                             </div>
                             <h3 className="text-2xl font-bold text-white mb-2">Salud Financiera OK</h3>
                             <p className="text-emerald-200/70 text-sm max-w-xs">
-                                Tu <strong>Disponible</strong> cubre todos los gastos fijos del mes. ¡Bien hecho!
+                                Tu saldo cubre tus costos fijos mensuales (${cobertura.costoVidaMensual.toLocaleString()}).
                             </p>
                         </>
                     ) : (
@@ -137,7 +148,7 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                             </div>
                             <h3 className="text-2xl font-bold text-white mb-2">Riesgo de Liquidez</h3>
                             <p className="text-red-200/70 text-sm max-w-xs">
-                                Te faltan <strong className="text-white">${cobertura.faltante.toLocaleString()}</strong> para cubrir tus obligaciones fijas.
+                                Te faltan <strong className="text-white">${cobertura.faltante.toLocaleString()}</strong> para cubrir tus costos fijos.
                             </p>
                         </>
                     )}
@@ -188,12 +199,12 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                             {movimientosRecientes.length === 0 ? (
                                 <tr><td colSpan={5} className="p-10 text-center text-gray-500 text-sm">No hay movimientos.</td></tr>
                             ) : (
-                                movimientosRecientes.map(m => (
+                                movimientosRecientes.map((m: any) => (
                                     <tr key={m.id} className="hover:bg-white/5 transition group">
                                         <td className="p-4 text-gray-400 whitespace-nowrap text-xs font-mono">{formatDate(m.fecha)}</td>
 
                                         <td className="p-4 font-bold text-white">
-                                            {m.referencia || "Sin detalle"}
+                                            {m.descripcion || m.referencia || "Sin detalle"}
                                             <span className="block text-[10px] text-gray-500 font-normal uppercase tracking-wide mt-0.5">{m.categoria}</span>
                                         </td>
 

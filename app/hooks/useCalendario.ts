@@ -1,51 +1,168 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabaseClient";
-import { EventoCalendario, PostIt, TipoNota } from "../../types";
-import { toast } from "sonner";
-import moment from "moment";
-import { useWorkspace } from "../providers/WorkspaceProvider";
-import { useLogger } from "./useLogger";
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabaseClient';
+import { useWorkspace } from '../providers/WorkspaceProvider';
+import { toast } from 'sonner';
+import { TipoNota } from "../../types";
 
 export function useCalendario() {
-    const queryClient = useQueryClient();
     const { currentWorkspace } = useWorkspace();
-    const { logEvent } = useLogger();
+    const queryClient = useQueryClient();
+    const [currentDate, setCurrentDate] = useState(new Date());
 
-    // 1. CARGA DE DATOS
     const { data, isLoading } = useQuery({
-        queryKey: ['calendario', currentWorkspace?.id],
+        queryKey: ['calendario', currentWorkspace?.id, currentDate.getMonth(), currentDate.getFullYear()],
+        enabled: !!currentWorkspace?.id,
         queryFn: async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session || !currentWorkspace) return { localEvents: [], postIts: [], proyectosRaw: [], proyectosList: [] };
+            const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
+            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
 
-            const [tareas, gastos, proyectos, notas] = await Promise.all([
-                supabase.from("tareas").select("*, proyectos(nombre)").eq("workspace_id", currentWorkspace.id),
-                supabase.from("gastos_fijos").select("*").eq("workspace_id", currentWorkspace.id).eq("activo", true),
-                supabase.from("proyectos").select("id, nombre, monto, fecha_inicio, fecha_fin, estado, clientes(nombre)").eq("workspace_id", currentWorkspace.id),
-                supabase.from("notas_calendario").select("*").eq("workspace_id", currentWorkspace.id)
-            ]);
+            // 1. Cargar TAREAS (¡ESTO FALTABA!)
+            const { data: tareas } = await supabase
+                .from('tareas')
+                .select('*, proyectos(nombre)')
+                .eq('workspace_id', currentWorkspace?.id); // Traemos todas o filtramos por fecha... mejor traer por fecha si son muchas
+            // .gte('fecha', startOfMonth) ... las tareas pueden ser antiguas pero no completadas. Dejemos todas por ahora.
 
-            const lista: EventoCalendario[] = [];
-            // Procesar Tareas
-            tareas.data?.forEach((t: any) => {
+            // 2. Cargar Notas
+            const { data: notas } = await supabase
+                .from('notas_calendario')
+                .select('*')
+                .eq('workspace_id', currentWorkspace?.id)
+                .gte('fecha', startOfMonth)
+                .lte('fecha', endOfMonth);
+
+            // 3. Cargar Proyectos (Entregas)
+            const { data: proyectos } = await supabase
+                .from('proyectos')
+                .select('id, nombre, fecha_fin, cliente:clientes(nombre)')
+                .eq('workspace_id', currentWorkspace?.id)
+                .gte('fecha_fin', startOfMonth)
+                .lte('fecha_fin', endOfMonth);
+
+            // 4. Cargar Pagos Recibidos (Ingresos)
+            const { data: pagos } = await supabase
+                .from('pagos_cliente')
+                .select('id, monto, moneda, fecha_pago, cliente:clientes(nombre)')
+                .eq('workspace_id', currentWorkspace?.id)
+                .gte('fecha_pago', startOfMonth)
+                .lte('fecha_pago', endOfMonth);
+
+            // 5. Cargar Gastos Recurrentes (Salidas)
+            const { data: gastosFijos } = await supabase
+                .from('gastos_fijos')
+                .select('*')
+                .eq('workspace_id', currentWorkspace?.id)
+                .eq('activo', true);
+
+            // --- PROCESAMIENTO ---
+
+            const eventosMapeados: any[] = [];
+
+            // A. Tareas
+            (tareas || []).forEach((t: any) => {
                 const start = new Date(t.fecha + "T" + (t.hora || "09:00"));
                 const end = t.hora_fin ? new Date(t.fecha + "T" + t.hora_fin) : new Date(start.getTime() + 3600000);
-                lista.push({ id: t.id, title: t.titulo, start, end, allDay: !t.hora, resource: { ...t, tipo_evento: 'tarea' } });
+                eventosMapeados.push({
+                    id: t.id,
+                    title: t.titulo,
+                    start,
+                    end,
+                    allDay: !t.hora,
+                    resource: { ...t, tipo_evento: 'tarea' }, // Para filtros
+                    type: 'tarea' // Para CalendarBoard si lo usara
+                });
             });
 
+            // B. Notas (Como eventos)
+            (notas || []).forEach((n: any) => {
+                eventosMapeados.push({
+                    id: n.id,
+                    title: n.texto,
+                    start: n.fecha, // CalendarBoard necesita 'start'
+                    end: n.fecha,
+                    type: 'nota',
+                    color: n.color || 'blue',
+                    rotacion: n.rotacion,
+                    resource: { tipo_evento: 'nota' }
+                });
+            });
+
+            // C. Entregas de Proyectos
+            (proyectos || []).forEach((p: any) => {
+                eventosMapeados.push({
+                    id: p.id,
+                    title: `Entrega: ${p.nombre}`,
+                    start: p.fecha_fin,
+                    end: p.fecha_fin,
+                    type: 'entrega',
+                    color: 'purple',
+                    details: p.cliente?.nombre,
+                    resource: { tipo_evento: 'proyecto' }
+                });
+            });
+
+            // D. Pagos Recibidos
+            (pagos || []).forEach((p: any) => {
+                eventosMapeados.push({
+                    id: p.id,
+                    title: `Pago: $${p.monto}`,
+                    start: p.fecha_pago,
+                    end: p.fecha_pago,
+                    type: 'cobro',
+                    color: 'emerald',
+                    details: p.cliente?.nombre,
+                    resource: { tipo_evento: 'cobro' }
+                });
+            });
+
+            // E. Proyección de Gastos Fijos
+            (gastosFijos || []).forEach((g: any) => {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+                const diaPagoReal = Math.min(g.dia_pago, lastDayOfMonth);
+                const fechaConstruida = new Date(year, month, diaPagoReal).toISOString().split('T')[0];
+
+                eventosMapeados.push({
+                    id: `gasto-${g.id}`,
+                    title: `${g.nombre}`,
+                    monto: g.monto,
+                    moneda: g.moneda,
+                    start: fechaConstruida,
+                    end: fechaConstruida,
+                    type: 'gasto_fijo', // Para CustomEvent en CalendarBoard
+                    color: 'red',
+                    details: g.categoria,
+                    resource: { tipo_evento: 'gasto' } // Para filtros en page.tsx
+                });
+            });
+
+
+            // F. PostIts Raw (Para el NotesBoard)
+            const postItsRaw = (notas || []).map((n: any) => ({
+                id: n.id,
+                texto: n.texto,
+                fecha: n.fecha,
+                color: n.color || 'amarillo',
+                rotacion: n.rotacion || 0
+            }));
+
+            // G. Proyectos Raw y List 
+            const proyectosListData = (proyectos || []).map((p: any) => ({
+                id: p.id,
+                nombre: p.nombre,
+                cliente: p.cliente
+            }));
+
             return {
-                localEvents: lista,
-                postIts: notas.data?.map((n: any) => ({ id: n.id, texto: n.texto, fecha: n.fecha, color: n.color || 'amarillo', rotacion: n.rotacion || 0 })) || [],
-                proyectosRaw: proyectos.data || [],
-                proyectosList: proyectos.data?.map((p: any) => ({ id: p.id, nombre: p.nombre, cliente: p.clientes })) || [],
+                calendarEvents: eventosMapeados,
+                postIts: postItsRaw,
+                proyectosRaw: proyectos || [], // Puede incluir otros campos vs 'proyectos' de arriba
+                proyectosList: proyectosListData
             };
         }
     });
-
-    const eventosDB = data?.localEvents || [];
-
-    // 2. MUTACIONES (ACCIONES)
 
     const guardarTareaMutation = useMutation({
         mutationFn: async ({ formulario, recurrente }: { formulario: any, recurrente: boolean }) => {
@@ -78,65 +195,64 @@ export function useCalendario() {
         }
     });
 
-    const guardarNotaMutation = useMutation({
-        mutationFn: async ({ texto, color }: { texto: string, color: TipoNota }) => {
-            await supabase.from("notas_calendario").insert({
-                workspace_id: currentWorkspace?.id,
-                fecha: new Date().toISOString(),
-                texto,
-                color
-            });
+    const saveNotaMutation = useMutation({
+        mutationFn: async (nota: any) => {
+            if (nota.id) await supabase.from('notas_calendario').update(nota).eq('id', nota.id);
+            else await supabase.from('notas_calendario').insert({ ...nota, workspace_id: currentWorkspace?.id });
         },
-        onSuccess: () => { toast.success("Nota creada"); queryClient.invalidateQueries({ queryKey: ['calendario'] }); }
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['calendario'] });
+            toast.success("Nota guardada");
+        }
     });
 
-    // 🟢 ESTA ES LA FUNCIÓN QUE FALTABA
-    const borrarItemMutation = useMutation({
+    const deleteNotaMutation = useMutation({
         mutationFn: async ({ id, tabla }: { id: string, tabla: string }) => {
             // Mapeo para asegurar que borramos en la tabla correcta
             let tableName = tabla;
-            if (tabla === 'notas' || tabla === 'nota') tableName = 'notas_calendario';
-            if (tabla === 'tarea') tableName = 'tareas';
+            if (tabla === 'notas' || tabla === 'nota' || tabla === 'notas_calendario') tableName = 'notas_calendario';
+            if (tabla === 'tarea' || tabla === 'tareas') tableName = 'tareas';
 
             const { error } = await supabase.from(tableName).delete().eq("id", id);
             if (error) throw error;
         },
         onSuccess: () => {
-            toast.success("Eliminado correctamente");
             queryClient.invalidateQueries({ queryKey: ['calendario'] });
+            toast.success("Eliminado correctamente");
         }
     });
 
-    // También arreglamos Editar Nota por si acaso
-    const editarNotaMutation = useMutation({
-        mutationFn: async ({ id, texto, color }: { id: string, texto: string, color: string }) => {
-            await supabase.from("notas_calendario").update({ texto, color }).eq("id", id);
-        },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendario'] })
-    });
+    // Mocks / Placeholders
+    const dummyFunc = async (...args: any[]) => { };
 
     return {
-        loading: isLoading,
-        eventosDB,
+        eventos: data?.calendarEvents || [],
         postIts: data?.postIts || [],
         proyectosRaw: data?.proyectosRaw || [],
         proyectosList: data?.proyectosList || [],
 
+        isLoading,
+        currentDate,
+        setCurrentDate,
+
         cargarDatos: () => queryClient.invalidateQueries({ queryKey: ['calendario'] }),
-
         guardarTarea: (f: any, r: boolean) => guardarTareaMutation.mutateAsync({ formulario: f, recurrente: r }),
+        borrarItem: (id: string, tabla: string) => deleteNotaMutation.mutateAsync({ id, tabla }),
 
-        // 🟢 AHORA SÍ ESTÁ DEFINIDA CORRECTAMENTE
-        borrarItem: (id: string, tabla: string) => borrarItemMutation.mutateAsync({ id, tabla }),
+        guardarNota: (t: string, c: TipoNota) => saveNotaMutation.mutateAsync({ texto: t, color: c }),
+        editarNota: (id: string, t: string, c: any) => saveNotaMutation.mutateAsync({ id, texto: t, color: c }),
 
-        guardarNota: (t: string, c: TipoNota) => guardarNotaMutation.mutateAsync({ texto: t, color: c }),
-        editarNota: (id: string, t: string, c: any) => editarNotaMutation.mutateAsync({ id, texto: t, color: c }),
+        // Alias legacy
+        saveNota: saveNotaMutation.mutateAsync,
+        deleteNota: (id: string) => deleteNotaMutation.mutateAsync({ id, tabla: 'notas_calendario' }),
 
-        // Placeholders para funciones futuras
-        editarTarea: async (id: any, formulario: any) => { },
-        completarTarea: async (id: any, completada: any) => { },
-        updateTaskDate: async (id: any, start: any) => { },
-        saveSession: async (seconds: any, completed: any, evento: any) => { },
-        syncGoogle: async (force: any) => { }
+        loading: isLoading,
+        eventosDB: data?.calendarEvents || [],
+        localEvents: data?.calendarEvents || [],
+        completarTarea: dummyFunc,
+        editarTarea: dummyFunc,
+        updateTaskDate: dummyFunc,
+        saveSession: dummyFunc,
+        syncGoogle: dummyFunc
     };
 }

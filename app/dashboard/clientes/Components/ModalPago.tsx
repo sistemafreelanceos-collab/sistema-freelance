@@ -5,6 +5,7 @@ import { Cliente, Cuenta, Moneda, Proyecto } from "../../../../types";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { useWorkspace } from "@/app/providers/WorkspaceProvider";
+import { useQueryClient } from "@tanstack/react-query"; // 🟢 IMPORTANTE: Agregar esto
 
 interface Props {
     isOpen: boolean;
@@ -19,6 +20,7 @@ interface Props {
 
 export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas, userId, perfilUsuario, onPagoRegistrado }: Props) {
     const { currentWorkspace } = useWorkspace();
+    const queryClient = useQueryClient(); // 🟢 Inicializar el cliente de React Query
     const [loading, setLoading] = useState(false);
     const [archivo, setArchivo] = useState<File | null>(null);
 
@@ -116,10 +118,9 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
             let comprobanteUrl = null;
             if (archivo) comprobanteUrl = await subirComprobante(archivo);
 
-            // 1. Registrar Pago (El Trigger de SQL se encargará de crear el movimiento en Finanzas automáticamente)
+            // 1. Registrar Pago en tabla PAGOS_CLIENTE
             const { data: pagoRow, error } = await supabase.from("pagos_cliente").insert({
-                owner_id: userId,
-                workspace_id: currentWorkspace?.id, // CRITICAL FIX: Add workspace context
+                workspace_id: currentWorkspace?.id,
                 cliente_id: cliente.id,
                 proyecto_id: proyecto?.id || null,
                 cuenta_id: form.cuenta_id,
@@ -127,11 +128,31 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
                 monto: Number(form.monto),
                 moneda: form.moneda,
                 referencia: form.referencia,
-                nota: form.nota,
                 comprobante_url: comprobanteUrl
             }).select().single();
 
             if (error) throw error;
+
+            // 1.5. CREAR MOVIMIENTO EN FINANZAS (CORREGIDO)
+            const { error: errorMov } = await supabase.from("movimientos").insert({
+                workspace_id: currentWorkspace?.id,
+                cuenta_id: form.cuenta_id,
+                proyecto_id: proyecto?.id || null,
+                cliente_id: cliente.id,           // <--- Nuevo campo
+                pago_cliente_id: pagoRow.id,      // <--- Vinculamos con el ID del pago recien creado
+                tipo: 'ingreso',
+                monto: Number(form.monto),
+                moneda: form.moneda,
+                fecha: form.fecha_pago,
+                categoria: 'Cobro Cliente',
+                descripcion: `${form.referencia} - ${cliente.nombre}` // <--- Usamos descripción en vez de referencia/fuente
+                // Eliminamos: owner_id, fuente, referencia (porque no existen en tu tabla)
+            });
+
+            if (errorMov) {
+                console.error("Error creando movimiento:", errorMov);
+                toast.error("El pago se guardó, pero falló al impactar finanzas.");
+            }
 
             // 2. ACTUALIZACIÓN INTELIGENTE DE FECHA
             if (proyecto && esPagoTotal && proyecto.frecuencia_pago && proyecto.frecuencia_pago !== "unidad") {
@@ -143,12 +164,16 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
             const nuevosPagos = [...(cliente.pagos_cliente || []), { monto: Number(form.monto) }];
             const clienteActualizado = { ...cliente, pagos_cliente: nuevosPagos };
 
+            // 🟢 IMPORTANTE: Actualizar cachés para que se vea reflejado en el Dashboard
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['finanzas'] }), // Actualiza tabla movimientos y gráficos
+                queryClient.invalidateQueries({ queryKey: ['cuentas'] }),  // Actualiza saldo de cuentas
+                queryClient.invalidateQueries({ queryKey: ['clientes'] })  // Actualiza deuda del cliente
+            ]);
+
             onPagoRegistrado(pagoRow, clienteActualizado);
 
-            toast.success("Pago registrado correctamente");
-            // if (confirm("Pago registrado. ¿Descargar PDF?")) generarReciboPDF(pagoRow);
-            // Reemplazamos confirm con un toast con acción
-            toast("Pago registrado", {
+            toast("Pago registrado correctamente", {
                 description: "¿Quieres descargar el recibo?",
                 action: {
                     label: "Descargar PDF",

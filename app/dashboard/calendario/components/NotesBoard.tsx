@@ -132,8 +132,8 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote, onEdit }
             </div>
             <style jsx global>{`
                 @keyframes wiggle {
-                    0%, 100% { transform: rotate(${Math.random() * 2}deg) translateY(0); }
-                    50% { transform: rotate(${-Math.random() * 2}deg) translateY(2px); }
+                    0%, 100% { transform: rotate(2deg) translateY(0); }
+                    50% { transform: rotate(-2deg) translateY(2px); }
                 }
             `}</style>
         </div>

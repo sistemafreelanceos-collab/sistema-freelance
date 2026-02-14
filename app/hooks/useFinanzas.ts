@@ -22,7 +22,13 @@ export function useFinanzas() {
             const uid = session?.user.id;
 
             const [movs, fijos, presus, conf, ctas, perfil] = await Promise.all([
-                supabase.from("movimientos").select("*").eq("workspace_id", wsId).order('fecha', { ascending: false }).limit(2000),
+                // 🟢 CAMBIO AQUÍ: Ordenamos por 'created_at' para ver lo último que registraste primero
+                supabase.from("movimientos")
+                    .select("*")
+                    .eq("workspace_id", wsId)
+                    .order('created_at', { ascending: false }) // Antes era 'fecha'
+                    .limit(2000),
+
                 supabase.from("gastos_fijos").select("*").eq("workspace_id", wsId).eq("activo", true),
                 supabase.from("presupuestos").select("*").eq("workspace_id", wsId),
                 supabase.from("config_finanzas").select("*").eq("owner_id", uid).maybeSingle(),
@@ -49,7 +55,7 @@ export function useFinanzas() {
         }
     });
 
-    // --- MUTATIONS CORREGIDAS (SIN owner_id) ---
+    // --- MUTATIONS (Ya corregidas en el paso anterior) ---
 
     const guardarMovimientoMutation = useMutation({
         mutationFn: async ({ data, id }: { data: any, id?: string }) => {
@@ -62,7 +68,6 @@ export function useFinanzas() {
                 const { error } = await supabase.from("movimientos").update(payload).eq("id", id);
                 if (error) throw error;
             } else {
-                // 🛑 CORRECCIÓN: Quitamos owner_id del insert
                 const { error } = await supabase.from("movimientos").insert(payload);
                 if (error) throw error;
             }
@@ -90,7 +95,6 @@ export function useFinanzas() {
             const payload = { ...data, workspace_id: currentWorkspace.id };
 
             if (id) await supabase.from("presupuestos").update(payload).eq("id", id);
-            // 🛑 CORRECCIÓN: Quitamos owner_id del insert
             else await supabase.from("presupuestos").insert(payload);
         },
         onSuccess: () => {
@@ -109,7 +113,6 @@ export function useFinanzas() {
             if (payload.cuenta_id === "") payload.cuenta_id = null;
 
             if (id) await supabase.from("gastos_fijos").update(payload).eq("id", id);
-            // 🛑 CORRECCIÓN CRÍTICA: Quitamos owner_id del insert
             else await supabase.from("gastos_fijos").insert({ ...payload, activo: true });
         },
         onSuccess: () => {

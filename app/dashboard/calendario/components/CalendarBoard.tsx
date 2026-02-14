@@ -6,7 +6,7 @@ import 'moment/locale/es';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { EventoCalendario, CATEGORIAS_COLORS } from '../../../../types';
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
+import { ChevronLeftIcon, ChevronRightIcon, BanknotesIcon } from "@heroicons/react/24/solid";
 
 moment.locale('es');
 const localizer = momentLocalizer(moment);
@@ -49,6 +49,43 @@ const CustomToolbar = (toolbar: any) => {
                     </button>
                 ))}
             </div>
+        </div>
+    );
+};
+
+const CustomEvent = ({ event }: any) => {
+    // DISEÑO PARA GASTOS FIJOS
+    if (event.type === 'gasto_fijo') {
+        return (
+            <div className="bg-red-900/20 border border-red-500/30 text-red-300 px-2 py-1 rounded text-xs mb-1 flex justify-between items-center group cursor-pointer hover:bg-red-900/30 transition h-full">
+                <span className="truncate font-bold text-[10px]">{event.title}</span>
+                <span className="text-[10px] opacity-70 group-hover:opacity-100 flex items-center gap-1">
+                    <BanknotesIcon className="w-3 h-3" />
+                    {/* Formato compacto de dinero */}
+                    ${Number(event.monto).toLocaleString('en-US', { notation: "compact" })}
+                </span>
+            </div>
+        );
+    }
+
+    // ... (Mantenemos los diseños anteriores: nota, cobro, entrega)
+    if (event.type === 'cobro') {
+        return (
+            <div className="bg-emerald-900/20 border border-emerald-500/30 text-emerald-300 px-2 py-1 rounded text-xs mb-1 truncate h-full flex items-center">
+                💰 {event.title}
+            </div>
+        );
+    }
+
+    // Diseño Default (Notas / Entregas)
+    const colorClass = event.color === 'purple' ? 'bg-purple-500/20 text-purple-200 border-purple-500/30'
+        : event.color === 'emerald' ? 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30' // Fallback for cobro if simplified
+            : event.color === 'red' ? 'bg-red-500/20 text-red-200 border-red-500/30' // Fallback for gasto
+                : 'bg-blue-500/20 text-blue-200 border-blue-500/30'; // Default note
+
+    return (
+        <div className={`${colorClass} border px-2 py-1 rounded text-xs mb-1 truncate cursor-grab active:cursor-grabbing h-full flex items-center`}>
+            {event.title}
         </div>
     );
 };
@@ -106,7 +143,7 @@ export default function CalendarBoard({ eventos, view, setView, date, onNavigate
                 step={30}
                 timeslots={2}
                 scrollToTime={new Date(1970, 1, 1, 8, 0, 0)}
-                components={{ toolbar: CustomToolbar }}
+                components={{ toolbar: CustomToolbar, event: CustomEvent }}
                 messages={{ next: "Sig", previous: "Ant", today: "Hoy", month: "Mes", week: "Semana", day: "Día", date: "Fecha", time: "Hora", event: "Evento" }}
             />
 

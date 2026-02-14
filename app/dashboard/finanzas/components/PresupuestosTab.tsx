@@ -21,7 +21,7 @@ export default function PresupuestosTab({ movimientos, presupuestos, onOpenModal
 
         const gastosMes = movimientos.filter(m => {
             const d = new Date(m.fecha);
-            return m.tipo === 'egreso' && d.getMonth() === mes && d.getFullYear() === anio;
+            return (m.tipo === 'egreso' || m.tipo === 'gasto') && d.getMonth() === mes && d.getFullYear() === anio;
         });
 
         const gastoPorCat: Record<string, number> = {};

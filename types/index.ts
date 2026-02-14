@@ -76,10 +76,11 @@ export type Movimiento = {
     id: string;
     created_at?: string;
     owner_id?: string;
-    tipo: 'ingreso' | 'egreso' | 'saldo_inicial';
+    tipo: 'ingreso' | 'egreso' | 'gasto' | 'saldo_inicial'; // Agregamos 'gasto'
     monto: number;
     moneda?: string;
     referencia: string;
+    descripcion?: string; // Agregamos descripcion
     categoria: string;
     fecha: string;
     cuenta_id?: string;
@@ -350,5 +351,6 @@ export type ProfileDB = {
     nivel: number;
     racha_maxima: number;
     created_at: string;
+    role: 'user' | 'admin'; // Nuevo campo de rol
 };
 

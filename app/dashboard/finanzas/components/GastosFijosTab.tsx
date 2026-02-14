@@ -10,7 +10,7 @@ import { useWorkspace } from "../../../providers/WorkspaceProvider";
 interface Props {
     gastosFijos: GastoFijo[];
     cuentas: any[];
-    movimientos: Movimiento[]; // Nueva prop
+    movimientos: Movimiento[];
     onOpenModal: () => void;
     onRecargar: () => void;
     onEdit: (gasto: GastoFijo) => void;
@@ -35,19 +35,22 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
             fechaUltimo.getMonth() === mesActual &&
             fechaUltimo.getFullYear() === anioActual;
 
-        const pagadoPorMovimiento = movimientos.some(m =>
-            m.tipo === 'egreso' &&
-            // Verificamos que sea el MISMO gasto buscando el nombre en la referencia
-            m.referencia.toLowerCase().includes(gasto.nombre.toLowerCase()) &&
-            new Date(m.fecha).getMonth() === mesActual &&
-            new Date(m.fecha).getFullYear() === anioActual
-        );
+        const pagadoPorMovimiento = movimientos.some(m => {
+            // Buscamos en 'descripcion' (nuevo) o 'referencia' (viejo)
+            const textoMovimiento = ((m as any).descripcion || m.referencia || "").toLowerCase();
+            return (
+                m.tipo === 'egreso' &&
+                textoMovimiento.includes(gasto.nombre.toLowerCase()) &&
+                new Date(m.fecha).getMonth() === mesActual &&
+                new Date(m.fecha).getFullYear() === anioActual
+            );
+        });
 
         if (pagadoPorCampo || pagadoPorMovimiento) return { estado: 'pagado', texto: '¡Pagado!', dias: 0 };
 
         // 2. Lógica temporal
         const diaHoy = hoy.getDate();
-        const fechaCreacion = gasto.created_at ? new Date(gasto.created_at) : new Date(0); // Si no tiene, asumimos viejo
+        const fechaCreacion = gasto.created_at ? new Date(gasto.created_at) : new Date(0);
 
         // Si el gasto se creó ESTE mes y DESPUÉS del día de pago, no exigimos el pago de este mes.
         const esNuevoEsteMes = fechaCreacion.getMonth() === mesActual &&
@@ -55,32 +58,29 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
             fechaCreacion.getDate() > gasto.dia_pago;
 
         if (diaHoy > gasto.dia_pago && !esNuevoEsteMes) {
-            // Vencido real (era para pagar este mes y no es nuevo)
+            // Vencido real
             const diasVencido = diaHoy - gasto.dia_pago;
             return { estado: 'vencido', texto: `Vencido hace ${diasVencido} días`, dias: diasVencido };
         }
 
-        // 3. Pendiente (Futuro o Nuevo este mes saltando al siguiente)
+        // 3. Pendiente
         let targetFecha = new Date(anioActual, mesActual, gasto.dia_pago);
-
-        // Si ya pasó el día (o es nuevo post-fecha), apuntamos al próximo mes
         if (diaHoy > gasto.dia_pago || esNuevoEsteMes) {
             targetFecha = new Date(anioActual, mesActual + 1, gasto.dia_pago);
         }
 
-        // Calcular diferencia en días
         const diffTime = Math.abs(targetFecha.getTime() - hoy.getTime());
         const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         return { estado: 'pendiente', texto: diasRestantes === 0 ? 'Vence hoy' : `Vence en ${diasRestantes} días`, dias: diasRestantes };
     };
 
-    // Función para calcular la próxima fecha real (Visualmente)
-    const getProximaFecha = (diaPago: number) => {
+    const getProximaFecha = (diaPago: number, yaPagado: boolean) => {
         const fechaActual = new Date();
         let fechaPago = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), diaPago);
-        // Si hoy ya pasó el día de pago, la próxima es el otro mes (solo visualización)
-        if (fechaActual.getDate() > diaPago) {
+
+        // Si hoy ya pasó el día de pago O SI YA ESTÁ PAGADO este mes, mostramos el siguiente
+        if (fechaActual.getDate() > diaPago || yaPagado) {
             fechaPago = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, diaPago);
         }
         return fechaPago.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -98,38 +98,44 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
         const movimientosCuenta = movimientos.filter(m => m.cuenta_id === cuentaId);
         const saldoDisponible = movimientosCuenta.reduce((acc, m) => m.tipo === 'ingreso' ? acc + m.monto : acc - m.monto, 0);
 
+        // Opcional: Puedes quitar esta validación si prefieres permitir saldo negativo
+        /*
         if (saldoDisponible < gastoAPagar.monto) {
             toast.error(`❌ Fondos insuficientes. saldo: $${saldoDisponible}`);
             return;
         }
+        */
 
         setPagandoId(gastoAPagar.id);
-        setGastoAPagar(null);
 
         try {
+            // 🟢 CORRECCIÓN: Insertar solo en columnas existentes
             const { error: errMov } = await supabase.from("movimientos").insert({
-                owner_id: (await supabase.auth.getUser()).data.user?.id,
                 workspace_id: currentWorkspace?.id,
-                tipo: "egreso",
+                tipo: "gasto", // 🟢 CAMBIO: De "egreso" a "gasto"
                 monto: gastoAPagar.monto,
                 moneda: gastoAPagar.moneda || "USD",
-                referencia: `Pago Mensual: ${gastoAPagar.nombre}`,
+                descripcion: `Pago Mensual: ${gastoAPagar.nombre}`, // Usamos descripcion
                 categoria: gastoAPagar.categoria,
                 fecha: new Date().toISOString().slice(0, 10),
-                cuenta_id: cuentaId,
-                fuente: 'recurrente'
+                cuenta_id: cuentaId
+                // Eliminados: owner_id, fuente, referencia
             });
 
             if (!errMov) {
+                // Actualizamos el gasto fijo para marcarlo como pagado
                 await supabase.from("gastos_fijos").update({ ultimo_pago: new Date().toISOString() }).eq("id", gastoAPagar.id);
-                onRecargar();
-                // Opcional: Actualizar la cuenta por defecto si el usuario eligió una diferente? No por ahora.
+
                 toast.success("Pago registrado correctamente");
+                setGastoAPagar(null); // Cerramos el modal solo si fue exitoso
+                onRecargar();
             } else {
-                toast.error("Error al registrar el pago");
+                console.error("Error Supabase:", errMov);
+                toast.error("Error al registrar el pago: " + errMov.message);
             }
         } catch (error) {
-            toast.error("Error inesperado");
+            console.error("Error General:", error);
+            toast.error("Error inesperado al procesar el pago");
         } finally {
             setPagandoId(null);
         }
@@ -174,7 +180,7 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                                         </div>
                                         <p className="text-xs text-indigo-300 mt-1 flex items-center gap-1">
                                             <CalendarDaysIcon className="w-3 h-3" />
-                                            <span className="capitalize">{getProximaFecha(gf.dia_pago)}</span>
+                                            <span className="capitalize">{getProximaFecha(gf.dia_pago, esPagado)}</span>
                                         </p>
                                     </div>
                                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
@@ -186,7 +192,6 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                                 <div>
                                     <p className="text-xl font-mono text-white font-bold">${Number(gf.monto).toLocaleString()} <span className="text-[10px] text-gray-500">{gf.moneda || 'USD'}</span></p>
 
-                                    {/* Mostrar cuenta asociada si existe, o indicar Default */}
                                     {cuentaAsociada ? (
                                         <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -231,4 +236,4 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
             />
         </div>
     );
-}   
+}

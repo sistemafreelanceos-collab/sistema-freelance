@@ -20,8 +20,9 @@ const getFechaHoyISO = () => new Date().toISOString().split('T')[0];
 export function ModalDetalleGasto({ isOpen, onClose, gasto, movimientos }: any) {
     if (!isOpen || !gasto) return null;
 
+    // 🟢 CORREGIDO: Buscamos en 'descripcion' en lugar de 'referencia'
     const historial = movimientos.filter((m: any) =>
-        (m.tipo === 'egreso' && m.referencia.toLowerCase().includes(gasto.nombre.toLowerCase()))
+        (m.tipo === 'gasto' && (m.descripcion || m.referencia || "").toLowerCase().includes(gasto.nombre.toLowerCase()))
     ).sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
     const totalPagado = historial.reduce((acc: number, curr: any) => acc + curr.monto, 0);
@@ -81,7 +82,16 @@ export function ModalDetalleGasto({ isOpen, onClose, gasto, movimientos }: any) 
 }
 
 export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEditar }: any) {
-    const [form, setForm] = useState({ tipo: "egreso", monto: "", moneda: "USD", referencia: "", categoria: "Varios", fecha: getFechaHoyISO(), cuenta_id: "" });
+    // 🟢 CORREGIDO: Usamos 'descripcion' en el estado inicial
+    const [form, setForm] = useState({
+        tipo: "gasto",
+        monto: "",
+        moneda: "USD",
+        descripcion: "", // Antes 'referencia'
+        categoria: "Varios",
+        fecha: getFechaHoyISO(),
+        cuenta_id: ""
+    });
     const [usarInputTexto, setUsarInputTexto] = useState(false);
 
     useEffect(() => {
@@ -91,7 +101,7 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
                     tipo: movimientoEditar.tipo,
                     monto: movimientoEditar.monto,
                     moneda: movimientoEditar.moneda || "USD",
-                    referencia: movimientoEditar.referencia,
+                    descripcion: movimientoEditar.descripcion || movimientoEditar.referencia || "", // Adaptador
                     categoria: movimientoEditar.categoria,
                     fecha: movimientoEditar.fecha,
                     cuenta_id: movimientoEditar.cuenta_id || ""
@@ -100,7 +110,7 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
                     setUsarInputTexto(true);
                 }
             } else {
-                setForm({ tipo: "egreso", monto: "", moneda: "USD", referencia: "", categoria: "Varios", fecha: getFechaHoyISO(), cuenta_id: "" });
+                setForm({ tipo: "egreso", monto: "", moneda: "USD", descripcion: "", categoria: "Varios", fecha: getFechaHoyISO(), cuenta_id: "" });
                 setUsarInputTexto(false);
             }
         }
@@ -112,7 +122,15 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
         if (!form.cuenta_id) return toast.error("⚠️ Selecciona una CUENTA.");
         if (!form.monto) return toast.error("⚠️ Falta el monto.");
         const categoriaFinal = form.categoria.trim() === "" ? "Varios" : form.categoria;
-        onSave({ ...form, categoria: categoriaFinal, monto: Number(form.monto), fuente: 'manual' });
+
+        // 🟢 CORREGIDO: Enviamos la estructura exacta que pide la base de datos
+        // Eliminamos 'fuente' y usamos 'descripcion'
+        onSave({
+            ...form,
+            categoria: categoriaFinal,
+            monto: Number(form.monto),
+            // fuente: 'manual' <--- ELIMINADO porque no existe en DB
+        });
     };
 
     return (
@@ -128,8 +146,8 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
                             💰 Ingreso
                         </button>
                         <button
-                            onClick={() => setForm({ ...form, tipo: "egreso" })}
-                            className={`py-3 rounded-xl font-bold transition ${form.tipo === 'egreso' ? 'bg-red-600 text-white shadow-lg' : 'bg-black/40 text-gray-500 border border-white/5'}`}
+                            onClick={() => setForm({ ...form, tipo: "gasto" })}
+                            className={`py-3 rounded-xl font-bold transition ${form.tipo === 'gasto' ? 'bg-red-600 text-white shadow-lg' : 'bg-black/40 text-gray-500 border border-white/5'}`}
                         >
                             💸 Gasto
                         </button>
@@ -140,7 +158,13 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
                         <select className="w-24 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}><option value="USD">USD</option><option value="COP">COP</option></select>
                     </div>
 
-                    <input placeholder="Descripción..." className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.referencia} onChange={e => setForm({ ...form, referencia: e.target.value })} />
+                    {/* 🟢 CORREGIDO: Input mapeado a descripcion */}
+                    <input
+                        placeholder="Descripción..."
+                        className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none"
+                        value={form.descripcion}
+                        onChange={e => setForm({ ...form, descripcion: e.target.value })}
+                    />
 
                     <div className="grid grid-cols-2 gap-3">
                         <select className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.cuenta_id} onChange={e => setForm({ ...form, cuenta_id: e.target.value })}>

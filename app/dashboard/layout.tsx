@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userInitials, setUserInitials] = useState("U");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [planUsuario, setPlanUsuario] = useState<"gratis" | "premium">("premium");
+  const [userRole, setUserRole] = useState<"user" | "admin">("user"); // Nuevo estado para rol
 
   const makeInitials = (str: string) => {
     const clean = (str || "").trim();
@@ -45,11 +46,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       setUserInitials(makeInitials(name));
 
-      // Cargar color y avatar actualizado
-      const { data: perfil } = await supabase.from("profiles").select("color_tema, avatar_url").eq("id", session.user.id).single();
+      // Cargar color, avatar y ROL actualizado
+      const { data: perfil } = await supabase.from("profiles").select("color_tema, avatar_url, role").eq("id", session.user.id).single();
       const colorFinal = perfil?.color_tema || "#0F1115";
       // Prioritize profile table avatar, fallback to metadata
       setAvatarUrl(perfil?.avatar_url || meta.avatar_url || null);
+
+      // Set role if exists
+      if (perfil?.role) setUserRole(perfil.role as "user" | "admin");
 
       document.documentElement.style.setProperty('--sys-bg', colorFinal);
     };
@@ -72,6 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
           planUsuario={planUsuario}
+          userRole={userRole}
         />
 
         {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm"></div>}
