@@ -32,24 +32,36 @@ export function useFinanzas() {
                 supabase.from("gastos_fijos").select("*").eq("workspace_id", wsId).eq("activo", true),
                 supabase.from("presupuestos").select("*").eq("workspace_id", wsId),
                 supabase.from("config_finanzas").select("*").eq("owner_id", uid).maybeSingle(),
-                supabase.from("cuentas").select("id, nombre").eq("owner_id", uid),
+                supabase.from("cuentas").select("*").eq("owner_id", uid),
                 supabase.from("profiles").select("meta_moneda").eq("id", uid).single()
             ]);
 
             let movimientosProcessed: Movimiento[] = [];
+            let cuentasConSaldo: any[] = [];
             if (movs.data && ctas.data) {
                 const mapCuentas = new Map(ctas.data.map((c: any) => [c.id, c.nombre]));
                 movimientosProcessed = movs.data.map((m: any) => ({
                     ...m,
                     cuenta_nombre: m.cuenta_id ? mapCuentas.get(m.cuenta_id) : '---'
                 }));
+
+                cuentasConSaldo = ctas.data.map((cuenta: any) => {
+                    const movsCuenta = movimientosProcessed.filter(m => m.cuenta_id === cuenta.id);
+                    const saldo = movsCuenta.reduce((acc, mov) => {
+                        const monto = Number(mov.monto) || 0;
+                        return mov.tipo === "ingreso" ? acc + monto : acc - monto;
+                    }, 0);
+                    return { ...cuenta, saldo_calculado: saldo };
+                });
+            } else {
+                cuentasConSaldo = ctas.data || [];
             }
 
             return {
                 movimientos: movimientosProcessed,
                 gastosFijos: (fijos.data || []) as GastoFijo[],
                 presupuestos: (presus.data || []) as Presupuesto[],
-                cuentas: (ctas.data || []) as Cuenta[],
+                cuentas: cuentasConSaldo as Cuenta[],
                 config: { ...conf.data, meta_moneda: perfil.data?.meta_moneda || "USD" }
             };
         }

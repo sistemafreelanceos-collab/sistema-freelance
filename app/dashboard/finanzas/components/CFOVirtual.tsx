@@ -87,9 +87,27 @@ export default function CFOVirtual() {
                     return;
                 }
 
+                const cuentaSeleccionada = cuentas.find(c => c.id === cuentaDefault);
+
+                // AVISO DE SALDO (SUAVE)
+                if (pendingAction.payload.tipo === 'egreso' || pendingAction.payload.tipo === 'gasto') {
+                    if (cuentaSeleccionada) {
+                        const saldoActual = Number(cuentaSeleccionada.saldo_calculado || 0);
+                        const montoPeticion = Number(pendingAction.payload.monto);
+
+                        if (montoPeticion > saldoActual) {
+                            setMessages(prev => [...prev, {
+                                role: 'ai',
+                                text: `⚠️ Atención: La cuenta "${cuentaSeleccionada.nombre}" quedará en negativo (Saldo actual: $${saldoActual.toLocaleString('en-US')}).`
+                            }]);
+                            // Permitimos continuar (Aviso suave)
+                        }
+                    }
+                }
+
                 await guardarMovimiento({
                     ...pendingAction.payload,
-                    fecha: new Date().toISOString().split('T')[0],
+                    fecha: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
                     cuenta_id: cuentaDefault
                 });
 

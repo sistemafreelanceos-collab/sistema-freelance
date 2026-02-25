@@ -95,16 +95,15 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
         if (!gastoAPagar) return;
 
         // 1. Validar Fondos
-        const movimientosCuenta = movimientos.filter(m => m.cuenta_id === cuentaId);
-        const saldoDisponible = movimientosCuenta.reduce((acc, m) => m.tipo === 'ingreso' ? acc + m.monto : acc - m.monto, 0);
-
-        // Opcional: Puedes quitar esta validación si prefieres permitir saldo negativo
-        /*
-        if (saldoDisponible < gastoAPagar.monto) {
-            toast.error(`❌ Fondos insuficientes. saldo: $${saldoDisponible}`);
-            return;
+        // 1. VALIDACIÓN DE FONDOS ESTRICTA (COMO UN BANCO)
+        const cuentaSeleccionada = (cuentas || []).find((c: any) => c.id === cuentaId);
+        if (cuentaSeleccionada) {
+            const saldoActual = Number(cuentaSeleccionada.saldo_calculado || 0);
+            if (gastoAPagar.monto > saldoActual) {
+                toast.error(`❌ Transacción rechazada: Fondos insuficientes en "${cuentaSeleccionada.nombre}". Tu saldo actual es $${saldoActual.toLocaleString('en-US')}.`);
+                return; // ⛔ ESTO DETIENE LA EJECUCIÓN, NO DEJA PAGAR
+            }
         }
-        */
 
         setPagandoId(gastoAPagar.id);
 
@@ -117,14 +116,14 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                 moneda: gastoAPagar.moneda || "USD",
                 descripcion: `Pago Mensual: ${gastoAPagar.nombre}`, // Usamos descripcion
                 categoria: gastoAPagar.categoria,
-                fecha: new Date().toISOString().slice(0, 10),
+                fecha: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
                 cuenta_id: cuentaId
                 // Eliminados: owner_id, fuente, referencia
             });
 
             if (!errMov) {
                 // Actualizamos el gasto fijo para marcarlo como pagado
-                await supabase.from("gastos_fijos").update({ ultimo_pago: new Date().toISOString() }).eq("id", gastoAPagar.id);
+                await supabase.from("gastos_fijos").update({ ultimo_pago: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString() }).eq("id", gastoAPagar.id);
 
                 toast.success("Pago registrado correctamente");
                 setGastoAPagar(null); // Cerramos el modal solo si fue exitoso

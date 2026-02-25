@@ -122,6 +122,7 @@ export default function FinanzasPage() {
           movimientos={movimientos}
           gastosFijos={gastosFijos}
           config={config}
+          cuentas={cuentas}
           presupuestos={presupuestos}
           saldoActual={movimientos.reduce((acc, m) => acc + (m.tipo === 'ingreso' ? m.monto : -m.monto), 0)}
           onUpdateConfig={updateConfig}
@@ -155,9 +156,9 @@ export default function FinanzasPage() {
         />
       )}
 
-      <ModalMovimiento isOpen={modales.mov} onClose={() => { setModales({ ...modales, mov: false }); setMovimientoEditar(null); }} onSave={handleSaveMovimiento} cuentas={cuentas} movimientoEditar={movimientoEditar} />
-      <ModalPresupuesto isOpen={modales.presu} onClose={() => { setModales({ ...modales, presu: false }); setPresupuestoEditar(null); }} onSave={handleSavePresupuesto} presupuestoEditar={presupuestoEditar} />
-      <ModalGastoFijo isOpen={modales.fijo} onClose={() => { setModales({ ...modales, fijo: false }); setGastoFijoEditar(null); }} onSave={handleSaveGastoFijo} gastoEditar={gastoFijoEditar} cuentas={cuentas} />
+      <ModalMovimiento isOpen={modales.mov} onClose={() => { setModales({ ...modales, mov: false }); setMovimientoEditar(null); }} onSave={handleSaveMovimiento} cuentas={cuentas} movimientoEditar={movimientoEditar} config={config} />
+      <ModalPresupuesto isOpen={modales.presu} onClose={() => { setModales({ ...modales, presu: false }); setPresupuestoEditar(null); }} onSave={handleSavePresupuesto} presupuestoEditar={presupuestoEditar} config={config} />
+      <ModalGastoFijo isOpen={modales.fijo} onClose={() => { setModales({ ...modales, fijo: false }); setGastoFijoEditar(null); }} onSave={handleSaveGastoFijo} gastoEditar={gastoFijoEditar} cuentas={cuentas} config={config} />
 
       <ModalDetalleGasto
         isOpen={modales.detalle}

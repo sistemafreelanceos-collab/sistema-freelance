@@ -4,18 +4,17 @@ import {
     DragEndEvent,
     DragStartEvent,
     DragOverlay,
-    useDraggable,
-    useDroppable,
     PointerSensor,
     useSensor,
     useSensors,
-    closestCorners,
-    pointerWithin, // 🟢 MEJORA: Detección basada en el puntero
     defaultDropAnimationSideEffects,
     DropAnimation,
     CollisionDetection,
-    rectIntersection
+    pointerWithin,
+    rectIntersection,
+    DragOverEvent
 } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useMemo, useState } from "react";
 
@@ -32,7 +31,6 @@ interface Props {
     onStatusChange: (id: string, newStatus: string) => void;
 }
 
-// Configuración de animación para que se sienta suave al soltar
 const dropAnimation: DropAnimation = {
     sideEffects: defaultDropAnimationSideEffects({
         styles: {
@@ -46,42 +44,39 @@ const dropAnimation: DropAnimation = {
 export default function ProjectKanban({ proyectos, onStatusChange }: Props) {
     const [activeId, setActiveId] = useState<string | null>(null);
 
-    // 1. SENSORES: Evitamos drags accidentales (requiere mover 5px para activar)
+    // Track active item being dragged for immediate UI updates
+    const [items, setItems] = useState(proyectos);
+
+    useMemo(() => {
+        setItems(proyectos);
+    }, [proyectos]);
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 2,
+                distance: 5,
             },
         })
     );
 
-    // Agrupamos proyectos por columna
     const boardData = useMemo(() => {
         const data: Record<string, any[]> = { pendiente: [], en_proceso: [], revision: [], finalizado: [] };
-        proyectos.forEach((p) => {
+        items.forEach((p) => {
             const estado = data[p.estado] ? p.estado : "pendiente";
             data[estado].push(p);
         });
         return data;
-    }, [proyectos]);
+    }, [items]);
 
-    // Encontrar el proyecto activo para el Overlay
     const activeProject = useMemo(() =>
-        proyectos.find((p) => p.id === activeId),
-        [activeId, proyectos]);
+        items.find((p) => p.id === activeId),
+        [activeId, items]);
 
-    // 2. MEJORA: Algoritmo de colisión híbrido
-    // Para Kanban, pointerWithin es mucho mejor para "sentir" que el puntero está dentro de la columna.
-    // Usamos una función personalizada para máxima precisión.
     const customCollisionDetection: CollisionDetection = useCallback((args) => {
-        // Primero intentamos detectar si el puntero está explícitamente sobre una columna
         const pointerCollisions = pointerWithin(args);
-
         if (pointerCollisions.length > 0) {
             return pointerCollisions;
         }
-
-        // Si no (ej. movimiento muy rápido), usamos la intersección de rectángulos como fallback
         return rectIntersection(args);
     }, []);
 
@@ -89,27 +84,74 @@ export default function ProjectKanban({ proyectos, onStatusChange }: Props) {
         setActiveId(event.active.id as string);
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragOver = (event: DragOverEvent) => {
         const { active, over } = event;
-        setActiveId(null); // Limpiamos el estado activo siempre
-
         if (!over) return;
 
-        const proyectoId = active.id as string;
-        const nuevoEstado = over.id as string;
+        const activeId = active.id;
+        const overId = over.id;
 
-        // Solo actualizamos si cambió de columna
-        const proyectoActual = proyectos.find(p => p.id === proyectoId);
-        if (proyectoActual && proyectoActual.estado !== nuevoEstado) {
+        if (activeId === overId) return;
+
+        const isActiveProject = items.some(p => p.id === activeId);
+        const isOverProject = items.some(p => p.id === overId);
+
+        if (!isActiveProject) return;
+
+        setItems((prev) => {
+            const activeItems = [...prev];
+            const activeIndex = activeItems.findIndex(p => p.id === activeId);
+
+            if (isOverProject) {
+                const overIndex = activeItems.findIndex(p => p.id === overId);
+                const overItem = activeItems[overIndex];
+
+                if (activeItems[activeIndex].estado !== overItem.estado) {
+                    activeItems[activeIndex] = { ...activeItems[activeIndex], estado: overItem.estado };
+                }
+            } else {
+                const isOverColumn = COLUMNS.some(col => col.id === overId);
+                if (isOverColumn) {
+                    activeItems[activeIndex] = { ...activeItems[activeIndex], estado: overId as string };
+                }
+            }
+
+            return activeItems;
+        });
+    };
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveId(null);
+
+        if (!over) {
+            setItems(proyectos); // Revert to original if dropped outside
+            return;
+        }
+
+        const proyectoId = active.id as string;
+        const overId = over.id as string;
+        let nuevoEstado = overId;
+
+        const isOverProject = items.some(p => p.id === overId);
+        if (isOverProject) {
+            nuevoEstado = items.find(p => p.id === overId)?.estado || "pendiente";
+        }
+
+        const proyectoOriginal = proyectos.find(p => p.id === proyectoId);
+        if (proyectoOriginal && proyectoOriginal.estado !== nuevoEstado) {
             onStatusChange(proyectoId, nuevoEstado);
+        } else {
+            setItems(proyectos); // Revert if no status change occurred
         }
     };
 
     return (
         <DndContext
             sensors={sensors}
-            collisionDetection={customCollisionDetection} // 🟢 USAR ALGORITMO MEJORADO
+            collisionDetection={customCollisionDetection}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-full min-h-[500px] overflow-x-auto pb-4">
@@ -124,7 +166,6 @@ export default function ProjectKanban({ proyectos, onStatusChange }: Props) {
                 ))}
             </div>
 
-            {/* 3. DRAG OVERLAY: El elemento "fantasma" que sigue al mouse */}
             <DragOverlay dropAnimation={dropAnimation}>
                 {activeProject ? (
                     <ProjectCard project={activeProject} isOverlay />
@@ -134,16 +175,20 @@ export default function ProjectKanban({ proyectos, onStatusChange }: Props) {
     );
 }
 
-// --- Subcomponentes ---
-
 function KanbanColumn({ id, title, colorClass, projects }: { id: string, title: string, colorClass: string, projects: any[] }) {
-    const { setNodeRef, isOver } = useDroppable({ id });
+    const { setNodeRef } = useSortable({
+        id: id,
+        data: {
+            type: "Column",
+            column: id
+        }
+    });
 
     return (
         <div
             ref={setNodeRef}
             className={`flex flex-col rounded-xl border p-3 h-full min-h-[400px] transition-colors duration-200 
-                ${isOver ? 'bg-white/5 ring-2 ring-white/10' : 'backdrop-blur-sm'} 
+                backdrop-blur-sm
                 ${colorClass.split(" ")[0]} ${colorClass.split(" ")[1]}`}
         >
             <div className="flex justify-between items-center mb-4">
@@ -151,10 +196,12 @@ function KanbanColumn({ id, title, colorClass, projects }: { id: string, title: 
                 <span className="text-xs font-mono opacity-50 bg-black/20 px-2 py-1 rounded-md">{projects.length}</span>
             </div>
 
-            <div className="flex-1 space-y-3">
-                {projects.map((p) => (
-                    <DraggableCard key={p.id} project={p} />
-                ))}
+            <div className="flex-1 flex flex-col gap-3">
+                <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                    {projects.map((p) => (
+                        <SortableCard key={p.id} project={p} />
+                    ))}
+                </SortableContext>
                 {projects.length === 0 && (
                     <div className="h-24 border-2 border-dashed border-white/5 rounded-lg flex items-center justify-center text-xs text-white/20">
                         Vacío
@@ -165,38 +212,46 @@ function KanbanColumn({ id, title, colorClass, projects }: { id: string, title: 
     );
 }
 
-// Lógica de arrastre
-function DraggableCard({ project }: { project: any }) {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id });
+function SortableCard({ project }: { project: any }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: project.id,
+        data: {
+            type: "Project",
+            project,
+        }
+    });
 
-    // Si se está arrastrando, ocultamos el original (pero mantenemos el espacio)
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
     if (isDragging) {
         return (
             <div
                 ref={setNodeRef}
+                style={style}
                 className="opacity-30 grayscale border border-dashed border-white/20 p-3 rounded-lg h-[100px] bg-black/20"
             />
         );
     }
 
     return (
-        <div ref={setNodeRef} {...listeners} {...attributes}>
+        <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
             <ProjectCard project={project} />
         </div>
     );
 }
 
-// Componente Visual Puro (reutilizado en el Overlay y en la lista)
 function ProjectCard({ project, isOverlay = false }: { project: any, isOverlay?: boolean }) {
-    // Formato de dinero
     const monto = new Intl.NumberFormat('en-US', { style: 'currency', currency: project.moneda || 'USD', maximumFractionDigits: 0 }).format(project.monto);
 
     return (
         <div className={`
             bg-[#1C2128] border p-4 rounded-xl shadow-lg transition-colors duration-200 group
             ${isOverlay
-                ? 'rotate-2 scale-105 border-emerald-500/50 shadow-2xl cursor-grabbing' // Estilo cuando está flotando
-                : 'border-white/10 hover:border-white/30 hover:bg-[#252b33] cursor-grab' // Estilo normal
+                ? 'rotate-2 scale-105 border-emerald-500/50 shadow-2xl cursor-grabbing'
+                : 'border-white/10 hover:border-white/30 hover:bg-[#252b33] cursor-grab'
             }
         `}>
             <div className="flex justify-between items-start mb-2">
@@ -212,7 +267,6 @@ function ProjectCard({ project, isOverlay = false }: { project: any, isOverlay?:
 
             <div className="flex justify-between items-center pt-3 border-t border-white/5">
                 <span className="text-white/90 font-mono text-sm font-bold tracking-tight">{monto}</span>
-                {/* Indicador de prioridad */}
                 {project.prioridad === 'alta' && (
                     <div className="flex items-center gap-1.5">
                         <span className="relative flex h-2 w-2">

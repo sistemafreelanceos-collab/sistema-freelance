@@ -146,7 +146,7 @@ export default function LoginPage() {
 
         {/* Header */}
         <h1 className="text-3xl font-bold text-center mb-2">
-          Freelance<span className="text-emerald-500">OS</span>
+          Onyx<span className="text-emerald-500">OS</span>
         </h1>
         <p className="text-center text-gray-400 text-sm mb-6">
           {isRecovery ? "Recuperar Contraseña" : (isRegister ? "Crea tu cuenta" : "Inicia sesión para continuar")}

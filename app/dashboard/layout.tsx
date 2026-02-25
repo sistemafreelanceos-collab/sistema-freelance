@@ -6,6 +6,8 @@ import Sidebar from "../components/layout/Sidebar";
 import TopBar from "../components/layout/TopBar";
 import { OnboardingProvider } from "@/app/providers/OnboardingProvider";
 import { useEventWatcher } from "../hooks/useEventWatcher";
+import { useHabitReminder } from "../hooks/useHabitReminder";
+import HabitReminderModal from "./components/HabitReminderModal";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -15,6 +17,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Estados Globales de UI
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Activar Recordatorio Horario de Hábitos
+  const { showReminder, missingHabitsCount, closeReminder } = useHabitReminder(userId);
 
   // Usuario logic ...
   const [userEmail, setUserEmail] = useState("");
@@ -38,6 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const session = data.session;
       if (!session) { router.push("/"); return; }
 
+      setUserId(session.user.id);
       setUserEmail(session.user.email ?? "");
       const meta = session.user.user_metadata || {};
       const name = meta.full_name || meta.name || session.user.email?.split("@")[0] || "Usuario";
@@ -94,6 +101,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </div>
         </main>
+
+        <HabitReminderModal
+          isOpen={showReminder}
+          missingCount={missingHabitsCount}
+          onClose={closeReminder}
+        />
       </div>
     </OnboardingProvider>
   );

@@ -6,6 +6,8 @@ import { supabase } from "../../lib/supabaseClient";
 import { useWorkspace } from "../providers/WorkspaceProvider";
 import { toast } from "sonner";
 import CreateWorkspaceModal from "../components/modals/CreateWorkspaceModal";
+import { useDailyBriefing } from "../hooks/useDailyBriefing";
+import DailyBriefingModal from "./components/DailyBriefingModal";
 
 // --- TIPOS ---
 type AlertaPago = {
@@ -67,6 +69,14 @@ export default function DashboardPage() {
   const [totalProyectos, setTotalProyectos] = useState(0);
   const [ultimosMovimientos, setUltimosMovimientos] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<AlertaPago[]>([]);
+
+  // 🟢 INYECCIÓN DEL DAILY BRIEFING
+  const { showBriefing, briefingText, isLoading: isBriefingLoading, closeBriefing } = useDailyBriefing({
+    userName: userName,
+    workspaceName: currentWorkspace?.name,
+    financialContext: cuentasConSaldo,
+    activeProjects: totalProyectos
+  });
 
   useEffect(() => {
     // Si todavía está cargando el contexto global, esperamos
@@ -349,6 +359,15 @@ export default function DashboardPage() {
          Antes había aquí un modal de "Bienvenido". Lo he eliminado.
          Ahora usamos 'CreateWorkspaceModal' arriba, que es el modal nativo para crear empresa.
       */}
+
+      {/* 🟢 MODAL DEL ASISTENTE VIRTUAL */}
+      <DailyBriefingModal
+        isOpen={showBriefing}
+        isLoading={isBriefingLoading}
+        briefingText={briefingText}
+        onClose={closeBriefing}
+        userName={userName}
+      />
 
     </div>
   );

@@ -5,17 +5,19 @@ import { useWorkspace } from '../providers/WorkspaceProvider';
 import { toast } from 'sonner';
 import { TipoNota } from "../../types";
 
-export function useCalendario() {
+export function useCalendario(viewDate: Date = new Date()) {
     const { currentWorkspace } = useWorkspace();
     const queryClient = useQueryClient();
-    const [currentDate, setCurrentDate] = useState(new Date());
 
     const { data, isLoading } = useQuery({
-        queryKey: ['calendario', currentWorkspace?.id, currentDate.getMonth(), currentDate.getFullYear()],
+        queryKey: ['calendario', currentWorkspace?.id, viewDate.getMonth(), viewDate.getFullYear()],
         enabled: !!currentWorkspace?.id,
         queryFn: async () => {
-            const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
-            const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString();
+            const formatLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const startOfMonth = formatLocal(new Date(viewDate.getFullYear(), viewDate.getMonth(), 1));
+            const endOfMonth = formatLocal(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0));
+
+            const safeDateStr = (dateStr: string) => dateStr && !dateStr.includes('T') ? `${dateStr}T12:00:00` : dateStr;
 
             // 1. Cargar TAREAS (¡ESTO FALTABA!)
             const { data: tareas } = await supabase
@@ -28,17 +30,14 @@ export function useCalendario() {
             const { data: notas } = await supabase
                 .from('notas_calendario')
                 .select('*')
-                .eq('workspace_id', currentWorkspace?.id)
-                .gte('fecha', startOfMonth)
-                .lte('fecha', endOfMonth);
+                .eq('workspace_id', currentWorkspace?.id);
 
-            // 3. Cargar Proyectos (Entregas)
+            // 3. Cargar Proyectos Activos (Entregas y Cobros)
             const { data: proyectos } = await supabase
                 .from('proyectos')
-                .select('id, nombre, fecha_fin, cliente:clientes(nombre)')
+                .select('*, pagos_cliente(*), cliente:clientes(nombre, proximo_pago, monto, moneda)')
                 .eq('workspace_id', currentWorkspace?.id)
-                .gte('fecha_fin', startOfMonth)
-                .lte('fecha_fin', endOfMonth);
+                .neq('estado', 'finalizado');
 
             // 4. Cargar Pagos Recibidos (Ingresos)
             const { data: pagos } = await supabase
@@ -79,8 +78,8 @@ export function useCalendario() {
                 eventosMapeados.push({
                     id: n.id,
                     title: n.texto,
-                    start: n.fecha, // CalendarBoard necesita 'start'
-                    end: n.fecha,
+                    start: safeDateStr(n.fecha),
+                    end: safeDateStr(n.fecha),
                     type: 'nota',
                     color: n.color || 'blue',
                     rotacion: n.rotacion,
@@ -88,27 +87,29 @@ export function useCalendario() {
                 });
             });
 
-            // C. Entregas de Proyectos
-            (proyectos || []).forEach((p: any) => {
-                eventosMapeados.push({
-                    id: p.id,
-                    title: `Entrega: ${p.nombre}`,
-                    start: p.fecha_fin,
-                    end: p.fecha_fin,
-                    type: 'entrega',
-                    color: 'purple',
-                    details: p.cliente?.nombre,
-                    resource: { tipo_evento: 'proyecto' }
+            // C. Entregas de Proyectos (Solo los que caen en este mes)
+            (proyectos || [])
+                .filter((p: any) => p.fecha_fin && p.fecha_fin >= startOfMonth && p.fecha_fin <= endOfMonth)
+                .forEach((p: any) => {
+                    eventosMapeados.push({
+                        id: p.id,
+                        title: `Entrega: ${p.nombre}`,
+                        start: safeDateStr(p.fecha_fin),
+                        end: safeDateStr(p.fecha_fin),
+                        type: 'entrega',
+                        color: 'purple',
+                        details: p.cliente?.nombre,
+                        resource: { tipo_evento: 'proyecto' }
+                    });
                 });
-            });
 
             // D. Pagos Recibidos
             (pagos || []).forEach((p: any) => {
                 eventosMapeados.push({
                     id: p.id,
                     title: `Pago: $${p.monto}`,
-                    start: p.fecha_pago,
-                    end: p.fecha_pago,
+                    start: safeDateStr(p.fecha_pago),
+                    end: safeDateStr(p.fecha_pago),
                     type: 'cobro',
                     color: 'emerald',
                     details: p.cliente?.nombre,
@@ -118,23 +119,126 @@ export function useCalendario() {
 
             // E. Proyección de Gastos Fijos
             (gastosFijos || []).forEach((g: any) => {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
+                const year = viewDate.getFullYear();
+                const month = viewDate.getMonth();
+
+                // Asegurar que el gasto ya existía antes o durante este mes
+                if (g.created_at) {
+                    const cd = new Date(g.created_at);
+                    if (year < cd.getFullYear() || (year === cd.getFullYear() && month < cd.getMonth())) {
+                        return; // Ocultar en el pasado
+                    }
+                }
+
+                // Obtener el día de pago limitado al último día del mes
                 const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-                const diaPagoReal = Math.min(g.dia_pago, lastDayOfMonth);
-                const fechaConstruida = new Date(year, month, diaPagoReal).toISOString().split('T')[0];
+                const diaPagoReal = Math.min(g.dia_pago || 1, lastDayOfMonth);
+                const fechaConstruida = `${year}-${String(month + 1).padStart(2, '0')}-${String(diaPagoReal).padStart(2, '0')}`;
 
                 eventosMapeados.push({
                     id: `gasto-${g.id}`,
                     title: `${g.nombre}`,
                     monto: g.monto,
                     moneda: g.moneda,
-                    start: fechaConstruida,
-                    end: fechaConstruida,
+                    start: safeDateStr(fechaConstruida),
+                    end: safeDateStr(fechaConstruida),
                     type: 'gasto_fijo', // Para CustomEvent en CalendarBoard
                     color: 'red',
                     details: g.categoria,
                     resource: { tipo_evento: 'gasto' } // Para filtros en page.tsx
+                });
+            });
+
+            // F. Proyección de Próximos Pagos de Clientes
+            (proyectos || []).forEach((p: any) => {
+                if (p.estado === 'finalizado') return;
+                const f = p.frecuencia_pago || "unidad";
+                const totalPagado = p.pagos_cliente?.reduce((sum: number, pago: any) => sum + pago.monto, 0) || 0;
+
+                if (totalPagado >= p.monto && p.monto > 0 && f === "unidad") return;
+
+                const limitStartStr = startOfMonth;
+                const limitEndStr = endOfMonth;
+                const [ly, lm, ld] = limitStartStr.split('-').map(Number);
+                const limitStart = new Date(ly, lm - 1, ld);
+
+                const [ey, em, ed] = limitEndStr.split('-').map(Number);
+                const limitEnd = new Date(ey, em - 1, ed, 23, 59, 59);
+
+                let montoFinal = p.monto;
+                if (p.monto === 0 && p.clientes?.monto) montoFinal = p.clientes.monto;
+
+                // Fechas a renderizar
+                const fechasParaRenderizar: Date[] = [];
+
+                if (f === "unidad") {
+                    // Solo una fecha
+                    let fCobro: Date | null = null;
+                    if (p.fecha_fin && !p.clientes?.proximo_pago) fCobro = new Date(p.fecha_fin);
+                    else if (p.clientes?.proximo_pago) fCobro = new Date(p.clientes.proximo_pago);
+                    else if (p.fecha_inicio) {
+                        fCobro = new Date(p.fecha_inicio);
+                        fCobro.setDate(fCobro.getDate() + 30);
+                    }
+                    if (fCobro) fechasParaRenderizar.push(fCobro);
+                } else if (p.fecha_inicio) {
+                    // Bucle para recolectar TODAS las fechas de este mes visible
+                    const [y, m, d] = p.fecha_inicio.split('-').map(Number);
+                    let currentCycle = new Date(y, m - 1, d);
+
+                    // Asegurarnos de que el loop no se vuelva infinito si hay error de datos
+                    let guard = 0;
+
+                    // Avanzar hasta llegar al principio del mes visible o más allá
+                    while (currentCycle <= limitEnd && guard < 1000) {
+                        guard++;
+
+                        // Si el ciclo cae dentro del mes visible, lo agregamos
+                        if (currentCycle >= limitStart && currentCycle <= limitEnd) {
+                            fechasParaRenderizar.push(new Date(currentCycle));
+                        }
+
+                        // Siguiente ciclo
+                        if (f === "quincenal") {
+                            if (currentCycle.getDate() < 15) currentCycle.setDate(15);
+                            else currentCycle = new Date(currentCycle.getFullYear(), currentCycle.getMonth() + 1, 0);
+
+                            // Ajuste para saltar a la próxima quincena real
+                            const temp = new Date(currentCycle);
+                            temp.setDate(temp.getDate() + 15);
+                            if (temp.getDate() < 15) temp.setDate(15); else temp.setDate(0);
+                            if (temp > currentCycle) currentCycle = temp; else currentCycle.setMonth(currentCycle.getMonth() + 1);
+                        } else if (f === "mensual") {
+                            currentCycle.setMonth(currentCycle.getMonth() + 1);
+                            currentCycle.setDate(Math.min(d, new Date(currentCycle.getFullYear(), currentCycle.getMonth() + 1, 0).getDate()));
+                        } else if (f === "semanal") {
+                            currentCycle.setDate(currentCycle.getDate() + 7);
+                        } else {
+                            break; // Por seguridad
+                        }
+                    }
+                }
+
+                // Inyectamos las fechas recolectadas
+                fechasParaRenderizar.forEach((fechaCobro) => {
+                    fechaCobro.setHours(12, 0, 0, 0);
+                    const isoDate = formatLocal(fechaCobro);
+                    const safeIsoDate = safeDateStr(isoDate);
+
+                    if (isoDate >= limitStartStr && isoDate <= limitEndStr) {
+                        eventosMapeados.push({
+                            id: `proxcobro-${p.id}-${isoDate}`, // ID único por fecha
+                            title: `⌚ Cobrar: ${p.clientes?.nombre || p.nombre}`,
+                            monto: montoFinal,
+                            moneda: p.clientes?.moneda || p.moneda || 'USD',
+                            start: safeIsoDate,
+                            end: safeIsoDate,
+                            type: 'proximo_cobro',
+                            color: 'emerald',
+                            details: p.nombre,
+                            resource: { tipo_evento: 'cobro' }
+                        });
+                    }
                 });
             });
 
@@ -197,12 +301,28 @@ export function useCalendario() {
 
     const saveNotaMutation = useMutation({
         mutationFn: async (nota: any) => {
-            if (nota.id) await supabase.from('notas_calendario').update(nota).eq('id', nota.id);
-            else await supabase.from('notas_calendario').insert({ ...nota, workspace_id: currentWorkspace?.id });
+            const payload = {
+                workspace_id: currentWorkspace?.id,
+                texto: nota.texto,
+                color: nota.color || 'amarillo',
+                fecha: nota.fecha || new Date().toISOString().split('T')[0],
+                rotacion: nota.rotacion || 0
+            };
+
+            if (nota.id) {
+                const { error } = await supabase.from('notas_calendario').update(payload).eq('id', nota.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('notas_calendario').insert(payload);
+                if (error) throw error;
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['calendario'] });
             toast.success("Nota guardada");
+        },
+        onError: (err: any) => {
+            toast.error("Error al guardar: " + err.message);
         }
     });
 
@@ -232,14 +352,12 @@ export function useCalendario() {
         proyectosList: data?.proyectosList || [],
 
         isLoading,
-        currentDate,
-        setCurrentDate,
 
         cargarDatos: () => queryClient.invalidateQueries({ queryKey: ['calendario'] }),
         guardarTarea: (f: any, r: boolean) => guardarTareaMutation.mutateAsync({ formulario: f, recurrente: r }),
         borrarItem: (id: string, tabla: string) => deleteNotaMutation.mutateAsync({ id, tabla }),
 
-        guardarNota: (t: string, c: TipoNota) => saveNotaMutation.mutateAsync({ texto: t, color: c }),
+        guardarNota: (t: any) => saveNotaMutation.mutateAsync(typeof t === 'string' ? { texto: t, color: arguments[1] || 'amarillo' } : t),
         editarNota: (id: string, t: string, c: any) => saveNotaMutation.mutateAsync({ id, texto: t, color: c }),
 
         // Alias legacy

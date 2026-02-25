@@ -1,6 +1,9 @@
 "use client";
 import { Cliente, EstadoProyecto, Proyecto } from "../../../../types";
 import { supabase } from "../../../../lib/supabaseClient";
+import { toast } from "sonner";
+import { useState } from "react";
+import { LinkIcon } from "@heroicons/react/24/outline";
 
 interface Props {
   cliente: Cliente;
@@ -46,6 +49,56 @@ export default function TarjetaCliente({
   onUpdate,
   onClienteUpdated
 }: Props) {
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
+  const handleGenerarEnlace = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setIsGeneratingLink(true);
+
+      // 1. Verificar si ya existe un enlace activo para este cliente
+      const { data: enlaceExistente, error: searchError } = await supabase
+        .from('enlaces_clientes')
+        .select('token_unico')
+        .eq('cliente_id', cliente.id)
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (searchError) throw searchError;
+
+      let token = enlaceExistente?.token_unico;
+
+      // 2. Si no existe, crear uno nuevo
+      if (!token) {
+        token = crypto.randomUUID().replace(/-/g, '').substring(0, 16); // Token más amigable
+
+        const { error: insertError } = await supabase
+          .from('enlaces_clientes')
+          .insert([
+            {
+              cliente_id: cliente.id,
+              token_unico: token
+            }
+          ]);
+
+        if (insertError) throw insertError;
+      }
+
+      // 3. Copiar al portapapeles
+      const url = `${window.location.origin}/portal/${token}`;
+      await navigator.clipboard.writeText(url);
+
+      toast.success("🔗 ¡Enlace del Portal copiado al portapapeles!", {
+        description: "Envíalo a tu cliente para que vea sus proyectos."
+      });
+
+    } catch (error: any) {
+      console.error("Error al generar enlace:", error);
+      toast.error("Hubo un error al generar el Magic Link.");
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
 
   const rotarEstado = async (p: Proyecto, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,34 +124,64 @@ export default function TarjetaCliente({
 
   // Función INTELIGENTE para el estado de la fecha
   const getFechaStatus = (fechaStr?: string, estaPagado: boolean = false, frecuencia: string = "unidad") => {
-    if (!fechaStr) return { label: "📅 ", class: "text-gray-400" };
+    if (!fechaStr) return { label: "📅 ", class: "text-gray-400", formattedDate: "--/--" };
 
-    // 1. CASO PAGADO (Prioridad)
-    if (estaPagado) {
-      if (frecuencia !== "unidad") {
-        return { label: "Próx. Pago: ", class: "text-blue-300 font-medium" };
-      }
-      return { label: "✅ Pagado: ", class: "text-emerald-400 font-bold" };
-    }
-
-    // 2. CASO PENDIENTE (Alertas)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const [y, m, d] = fechaStr.split('-').map(Number);
-    const fechaPago = new Date(y, m - 1, d);
+    let fechaPago = new Date(y, m - 1, d);
 
+    if (frecuencia === "quincenal") {
+      if (d < 15) {
+        fechaPago = new Date(y, m - 1, 15);
+      } else {
+        fechaPago = new Date(y, m, 0);
+      }
+    } else if (frecuencia === "mensual") {
+      fechaPago = new Date(y, m, d);
+    } else if (frecuencia === "semanal") {
+      fechaPago = new Date(y, m - 1, d + 7);
+    }
+
+    const formatDateCustom = (date: Date) => {
+      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    };
+
+    const strPago = formatDateCustom(fechaPago);
+
+    // 1. CASO PAGADO (Prioridad)
+    if (estaPagado) {
+      if (frecuencia !== "unidad") {
+        let nextDate = new Date(fechaPago);
+        if (frecuencia === "quincenal") {
+          if (nextDate.getDate() === 15) {
+            nextDate = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0);
+          } else {
+            nextDate = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 15);
+          }
+        } else if (frecuencia === "mensual") {
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        } else if (frecuencia === "semanal") {
+          nextDate.setDate(nextDate.getDate() + 7);
+        }
+        return { label: "Próx. Pago: ", class: "text-blue-300 font-medium", formattedDate: formatDateCustom(nextDate) };
+      }
+      return { label: "✅ Pagado: ", class: "text-emerald-400 font-bold", formattedDate: formatDateCustom(new Date(y, m - 1, d)) };
+    }
+
+    // 2. CASO PENDIENTE (Alertas)
     const diffTime = fechaPago.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return { label: "🚨 VENCIDA: ", class: "text-red-500 font-extrabold animate-pulse" };
+      return { label: "🚨 VENCIDA: ", class: "text-red-500 font-extrabold animate-pulse", formattedDate: strPago };
     }
     if (diffDays <= 3) {
-      return { label: "⚠️ Por Vencer: ", class: "text-yellow-400 font-bold" };
+      return { label: "⚠️ Por Vencer: ", class: "text-yellow-400 font-bold", formattedDate: strPago };
     }
 
-    return { label: "Próx. Pago: ", class: "text-gray-400" };
+    return { label: "Próx. Pago: ", class: "text-gray-400", formattedDate: strPago };
   };
 
   const projectCount = cliente.proyectos?.length || 0;
@@ -106,9 +189,25 @@ export default function TarjetaCliente({
   return (
     <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:border-emerald-500/30 transition group shadow-xl flex flex-col justify-between relative">
 
-      {onEliminarCliente && (
-        <button onClick={(e) => { e.stopPropagation(); onEliminarCliente(cliente.id); }} className="absolute top-4 right-4 text-gray-500 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition z-10">🗑️</button>
-      )}
+      <div className="absolute top-3 right-3 flex items-center gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition z-20">
+        <button
+          onClick={handleGenerarEnlace}
+          disabled={isGeneratingLink}
+          title="Copiar Link del Portal del Cliente"
+          className="text-indigo-400 hover:text-indigo-300 p-1.5 shadow-sm border border-indigo-500/10 bg-indigo-900/40 hover:bg-indigo-900/80 rounded-lg transition"
+        >
+          <LinkIcon className={`w-4 h-4 ${isGeneratingLink ? 'animate-pulse' : ''}`} />
+        </button>
+        {onEliminarCliente && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEliminarCliente(cliente.id); }}
+            className="text-gray-500 hover:text-red-400 p-1.5 transition"
+            title="Eliminar Cliente"
+          >
+            🗑️
+          </button>
+        )}
+      </div>
 
       <div>
         <div
@@ -150,7 +249,7 @@ export default function TarjetaCliente({
 
                   <div className="flex justify-between text-[10px] mb-2 relative z-10">
                     <span className={`${fechaStatus.class} transition-colors`}>
-                      {fechaStatus.label}{formatDateShort(p.fecha_inicio)}
+                      {fechaStatus.label}{fechaStatus.formattedDate}
                     </span>
                   </div>
 

@@ -25,7 +25,7 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
     const [archivo, setArchivo] = useState<File | null>(null);
 
     const [form, setForm] = useState({
-        fecha_pago: new Date().toISOString().slice(0, 10),
+        fecha_pago: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
         monto: "",
         moneda: "USD" as Moneda,
         referencia: "",
@@ -85,7 +85,7 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
         else if (frecuencia === "quincenal") localDate.setDate(localDate.getDate() + 15);
         else if (frecuencia === "semanal") localDate.setDate(localDate.getDate() + 7);
 
-        return localDate.toISOString().split('T')[0];
+        return new Date(localDate.getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
     };
 
     const subirComprobante = async (file: File) => {

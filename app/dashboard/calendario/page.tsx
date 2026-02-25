@@ -18,14 +18,15 @@ import { BellAlertIcon } from "@heroicons/react/24/solid";
 import SkeletonDashboard from "../components/SkeletonDashboard";
 
 export default function CalendarioPage() {
-    const {
-        loading, eventosDB, postIts, proyectosRaw, proyectosList,
-        guardarTarea, editarTarea, guardarNota, editarNota, borrarItem, completarTarea, updateTaskDate, saveSession, syncGoogle
-    } = useCalendario();
-
     // Estados UI Local
     const [view, setView] = useState(Views.MONTH);
     const [date, setDate] = useState(new Date());
+
+    const {
+        loading, eventosDB, postIts, proyectosRaw, proyectosList,
+        guardarTarea, editarTarea, guardarNota, editarNota, borrarItem, completarTarea, updateTaskDate, saveSession, syncGoogle
+    } = useCalendario(date) as any;
+
     const [filtros, setFiltros] = useState({ tareas: true, cobros: true });
 
     const [modalAbierto, setModalAbierto] = useState(false);
@@ -106,7 +107,7 @@ export default function CalendarioPage() {
         setFormulario({
             titulo: nota.texto, // En notas usamos 'titulo' del form como texto
             descripcion: "",
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: moment().format('YYYY-MM-DD'),
             hora: "",
             categoria: "",
             colorPostit: nota.color,
@@ -146,6 +147,31 @@ export default function CalendarioPage() {
         });
     }, [updateTaskDate]);
 
+    // NUEVO: Manejador para cuando se suelta un Proyecto del Kanban al Calendario
+    const handleProjectDrop = async (projectId: string, dropDate: Date) => {
+        const proyecto = proyectosRaw.find(p => p.id === projectId);
+        if (!proyecto) return;
+
+        const dateStr = moment(dropDate).format('YYYY-MM-DD');
+
+        // Crear como "Tarea" para que ocupe espacio (bloqueos de tiempo reales) en el grid del calendario
+        const nuevaTarea = {
+            titulo: `[TB] ${proyecto.nombre}`,
+            descripcion: "Bloqueo de tiempo asignado desde Kanban.",
+            fecha: dateStr,
+            hora: "09:00",
+            horaFin: "11:00", // Por defecto bloqueamos 2 horas
+            categoria: "Diseño",
+            proyectoId: projectId
+        };
+
+        toast.promise(guardarTarea(nuevaTarea, false), {
+            loading: 'Bloqueando tiempo en agenda...',
+            success: 'Bloque agendado en el calendario ⏳',
+            error: 'Error al bloquear tiempo'
+        });
+    };
+
     const descargarICS = () => { toast.info("Exportación iCal - Próximamente"); };
 
     if (loading) return <SkeletonDashboard />;
@@ -161,7 +187,7 @@ export default function CalendarioPage() {
                             <span className="text-xs font-medium hidden sm:inline">Sync Google</span>
                         </button>
                         <button onClick={descargarICS} className="bg-white/5 text-gray-400 px-3 py-2 rounded-lg hover:text-white transition" title="Exportar iCal"><ArrowDownTrayIcon className="w-5 h-5" /></button>
-                        <button onClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: new Date().toISOString().split('T')[0], hora: "09:00", categoria: "Diseño", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('tarea'); setEventoAEditar(null); setModalAbierto(true); }} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition shadow-lg flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Agendar</button>
+                        <button onClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: moment().format('YYYY-MM-DD'), hora: "09:00", categoria: "Diseño", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('tarea'); setEventoAEditar(null); setModalAbierto(true); }} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition shadow-lg flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Agendar</button>
                     </div>
                 </div>
 
@@ -169,6 +195,7 @@ export default function CalendarioPage() {
 
                 <CalendarBoard
                     eventos={eventosVisibles} view={view} setView={setView} date={date} onNavigate={onNavigate} onEventDrop={onEventDrop} onSelectEvent={setEventoSeleccionado}
+                    onProjectDrop={handleProjectDrop}
                     onSelectSlot={(slot) => { const dateStr = moment(slot.start).format('YYYY-MM-DD'); setFormulario(prev => ({ ...prev, fecha: dateStr, hora: "09:00", titulo: "", proyectoId: "", recurrente: false })); setModalTipo('tarea'); setModalAbierto(true); }}
                 />
             </div>

@@ -14,8 +14,11 @@ import {
     Bars3Icon,
     UserPlusIcon,
     CurrencyDollarIcon,
-    ClipboardDocumentCheckIcon
+    ClipboardDocumentCheckIcon,
+    BookOpenIcon
 } from "@heroicons/react/24/outline";
+
+import ManualUsuarioPanel from "../modals/ManualUsuarioPanel";
 
 interface TopBarProps {
     setMobileMenuOpen: (open: boolean) => void;
@@ -41,6 +44,7 @@ export default function TopBar({
     const [menuPerfilAbierto, setMenuPerfilAbierto] = useState(false);
     const [quickActionsOpen, setQuickActionsOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [manualOpen, setManualOpen] = useState(false);
 
     const handleLogout = async () => {
         setMenuPerfilAbierto(false);
@@ -97,6 +101,16 @@ export default function TopBar({
             </div>
 
             <div className="flex items-center gap-3 md:gap-4">
+
+                {/* HELP MANUAL */}
+                <button
+                    onClick={() => setManualOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 text-sm font-medium text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 hover:border-emerald-500/30 rounded-lg transition-all shadow-lg"
+                    title="Manual de Usuario"
+                >
+                    <BookOpenIcon className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="hidden md:inline">Manual</span>
+                </button>
 
                 {/* Quick Actions (+) */}
                 <div className="relative">
@@ -228,6 +242,9 @@ export default function TopBar({
             <button onClick={openCommand} className="md:hidden absolute left-14 text-white/50 hover:text-white">
                 <MagnifyingGlassIcon className="w-5 h-5" />
             </button>
+
+            {/* Slide-Over Manual */}
+            <ManualUsuarioPanel isOpen={manualOpen} onClose={() => setManualOpen(false)} />
 
         </header>
     );

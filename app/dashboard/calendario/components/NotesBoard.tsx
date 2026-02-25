@@ -20,14 +20,14 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote, onEdit }
     // Función para calcular "Envejecimiento"
     const getAgingStyle = (fechaStr: string) => {
         const dias = Math.floor((new Date().getTime() - new Date(fechaStr).getTime()) / (1000 * 3600 * 24));
-        let style = "";
+        let style = "animate-breeze "; // All notes swing softly
 
         if (dias > 15) {
-            // Muy antiguo: Se despega (animación viento) + Sombra levantada
-            style += " animate-[wiggle_3s_ease-in-out_infinite] shadow-[10px_10px_20px_rgba(0,0,0,0.4)] rotate-2 opacity-90";
+            // Muy antiguo: Se despega más y proyecta más sombra
+            style += " shadow-[10px_10px_20px_rgba(0,0,0,0.4)] opacity-90";
         } else if (dias > 7) {
-            // Medio antiguo: Un poco transparente y rotado
-            style += " opacity-95 rotate-1";
+            // Medio antiguo: Un poco transparente
+            style += " opacity-95";
         }
         return style;
     };
@@ -58,7 +58,7 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote, onEdit }
     };
 
     return (
-        <div className="w-full lg:w-[340px] bg-[#121212] border-l border-white/5 flex flex-col relative shadow-2xl h-full z-20">
+        <div className="w-full bg-[#121212] border-l border-white/5 flex flex-col relative shadow-2xl h-full z-20">
             {/* Fondo Corcho Oscuro */}
             <div className="absolute inset-0 opacity-10 pointer-events-none"
                 style={{
@@ -95,14 +95,29 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote, onEdit }
                                 onDragOver={(e) => handleDragOver(e, index)}
                                 onDragEnd={handleDragEnd}
                                 onClick={() => onEdit(nota)}
-                                className={`relative p-5 w-full min-h-[120px] shadow-xl transition-all duration-300 hover:scale-[1.02] hover:z-20 cursor-grab active:cursor-grabbing group ${POSTIT_STYLES[nota.color]} ${getAgingStyle(nota.fecha)}`}
                                 style={{
                                     transform: `rotate(${nota.rotacion}deg)`,
+                                    transformOrigin: 'top center', // Anclado al pin superior
+                                    animationDelay: `${Math.random() * 2}s`, // Para que no todas se muevan al mismo tiempo
                                     fontFamily: '"Comic Sans MS", "Chalkboard SE", sans-serif',
                                 }}
+                                className={`relative p-5 w-full min-h-[120px] shadow-xl transition-all duration-300 hover:scale-[1.02] hover:z-20 cursor-grab active:cursor-grabbing group ${POSTIT_STYLES[nota.color]} ${getAgingStyle(nota.fecha)}`}
                             >
-                                {/* CINTA ADHESIVA (Tape Effect) */}
-                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-8 bg-white/20 blur-[1px] rotate-[-2deg] shadow-sm pointer-events-none"></div>
+                                {/* PIN (Metallic Custom SVG) */}
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 pointer-events-none z-10 drop-shadow-md flex justify-center items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-full h-full drop-shadow-sm">
+                                        {/* Sombra base del pin */}
+                                        <ellipse cx="12" cy="20" rx="3" ry="1" fill="rgba(0,0,0,0.2)" />
+                                        {/* Aguja Metálica */}
+                                        <path d="M12 10 L12 20" stroke="#718096" strokeWidth="1.5" strokeLinecap="round" />
+                                        {/* Cabeza del Pin (Color dinámico para variar) */}
+                                        <path d="M8 4 Q12 1 16 4 L14 10 L10 10 Z" className="fill-red-500" />
+                                        {/* Brillo Superior */}
+                                        <path d="M10 3.5 Q12 2 14 3.5" stroke="rgba(255,255,255,0.6)" strokeWidth="1" fill="none" />
+                                        {/* Anillo Base (Tope plástico) */}
+                                        <rect x="9" y="10" width="6" height="2" rx="1" className="fill-red-700" />
+                                    </svg>
+                                </div>
 
                                 {/* MANCHA (Si es viejo +15d) */}
                                 {new Date().getTime() - new Date(nota.fecha).getTime() > 1296000000 && (
@@ -131,9 +146,13 @@ export default function NotesBoard({ postIts, onAddClick, onDeleteNote, onEdit }
                 </div>
             </div>
             <style jsx global>{`
-                @keyframes wiggle {
-                    0%, 100% { transform: rotate(2deg) translateY(0); }
-                    50% { transform: rotate(-2deg) translateY(2px); }
+                @keyframes breeze {
+                    0% { transform: rotate(-1deg); }
+                    50% { transform: rotate(1deg); }
+                    100% { transform: rotate(-1deg); }
+                }
+                .animate-breeze {
+                    animation: breeze 4s ease-in-out infinite;
                 }
             `}</style>
         </div>

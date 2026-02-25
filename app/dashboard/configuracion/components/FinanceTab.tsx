@@ -15,7 +15,7 @@ type Props = {
   saving?: boolean; // Opcional
 };
 
-export default function FinanceTab({ config, setConfig }: Props) {
+export default function FinanceTab({ config, setConfig, guardar, saving }: Props) {
   const toggleMoneda = (moneda: string) => {
     setConfig((prev) => {
       const currentList = prev.monedas_activas || [];
@@ -116,6 +116,19 @@ export default function FinanceTab({ config, setConfig }: Props) {
           La moneda de metas debe estar dentro de tus monedas activas.
         </p>
       </div>
+
+      {/* Botón Guardar */}
+      {guardar && (
+        <div className="flex justify-end pt-4">
+          <button
+            onClick={guardar}
+            disabled={saving}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-emerald-500/20 transition transform active:scale-95 disabled:opacity-50 disabled:scale-100"
+          >
+            {saving ? "Guardando..." : "Guardar Cambios"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

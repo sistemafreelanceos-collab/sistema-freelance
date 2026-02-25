@@ -36,7 +36,7 @@ export default function ModalNuevoProyecto({ isOpen, onClose, cliente, packs, us
         ...prev,
         moneda: cliente.moneda,
         // Por defecto inicia hoy
-        fecha_inicio: new Date().toISOString().split('T')[0]
+        fecha_inicio: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
       }));
     }
   }, [cliente]);

@@ -12,6 +12,7 @@ import {
     WalletIcon
 } from "@heroicons/react/24/solid";
 import { Movimiento, GastoFijo, ConfigFinanzas, Presupuesto } from "../../../../types";
+import { useExchangeRate } from "../../../hooks/useExchangeRate";
 
 import CFOVirtual from "./CFOVirtual";
 import FinancialProjectionChart from "./FinancialProjectionChart";
@@ -21,6 +22,7 @@ interface Props {
     gastosFijos: GastoFijo[];
     config: ConfigFinanzas;
     saldoActual: number;
+    cuentas: any[];
     presupuestos: Presupuesto[]; // Por si se necesita en el futuro
     onUpdateConfig: (key: string, val: number) => void;
     onOpenModal: () => void;
@@ -28,13 +30,18 @@ interface Props {
     onDelete: (id: string) => void;
 }
 
-export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config }: Props & { config: ConfigFinanzas & { meta_moneda?: string } }) {
+export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOpenModal, onEdit, onDelete, config, cuentas }: Props & { config: ConfigFinanzas & { meta_moneda?: string } }) {
 
     const formatDate = (fechaString: string) => {
         if (!fechaString) return "—";
         const [anio, mes, dia] = fechaString.split('-');
         return `${dia}/${mes}/${anio}`;
     };
+
+    const baseCurrency = config?.meta_moneda || "USD";
+    // Si la base es USD, mostramos en COP por defecto (o la moneda secundaria configurada)
+    const targetCurrency = baseCurrency === "USD" ? "COP" : "USD";
+    const { convert, loading: loadingExchange } = useExchangeRate(baseCurrency);
 
     const { resumen, cobertura, proximosPagos, movimientosRecientes } = useMemo(() => {
         // 1. CÁLCULOS KPI
@@ -114,14 +121,38 @@ export default function TableroTab({ movimientos, gastosFijos, saldoActual, onOp
                 </div>
 
                 {/* Tarjeta 3: Saldo Actual (Total Real) */}
-                <div className="bg-gradient-to-br from-indigo-900/40 to-black border border-indigo-500/30 p-6 rounded-2xl shadow-lg shadow-indigo-900/10 relative overflow-hidden">
+                <div className="bg-gradient-to-br from-indigo-900/40 to-black border border-indigo-500/30 p-6 rounded-2xl shadow-lg shadow-indigo-900/10 relative overflow-hidden flex flex-col justify-between">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <WalletIcon className="w-16 h-16 text-indigo-400" />
                     </div>
-                    <p className="text-xs text-indigo-300 uppercase font-bold mb-1">Saldo Actual Total</p>
-                    <p className="text-3xl font-mono text-white font-bold tracking-tight flex items-end gap-2">
-                        $ {resumen.saldoTotal.toLocaleString()} <span className="text-sm text-indigo-300/50 mb-1">{config.meta_moneda || "USD"}</span>
-                    </p>
+                    <div>
+                        <p className="text-xs text-indigo-300 uppercase font-bold mb-3">Saldo Actual En Cuentas</p>
+                        <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1 custom-scrollbar">
+                            {!cuentas || cuentas.length === 0 ? (
+                                <p className="text-3xl font-mono text-white font-bold">$ 0</p>
+                            ) : (
+                                cuentas.map((c) => (
+                                    <div key={c.id} className="flex items-baseline justify-between border-b border-indigo-500/10 last:border-0 pb-2 last:pb-0 relative z-10">
+                                        <span className="text-sm text-gray-300 truncate max-w-[120px]" title={c.nombre}>{c.nombre}</span>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-lg font-mono font-bold text-white tracking-tight">$ {(c.saldo_calculado || 0).toLocaleString()}</span>
+                                            <span className="text-[10px] font-bold text-indigo-300 bg-indigo-900/40 px-1.5 py-0.5 rounded border border-indigo-500/20">{c.moneda}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    {cuentas && cuentas.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-indigo-500/10 relative z-10 flex flex-col gap-1 text-right">
+                            <span className="text-sm font-bold text-gray-400">Total: $ {saldoActual.toLocaleString()} {baseCurrency}</span>
+                            {!loadingExchange && (
+                                <span className="text-xs text-indigo-300 font-mono tracking-tight opacity-70">
+                                    ≈ $ {(convert(saldoActual, targetCurrency) || 0).toLocaleString()} {targetCurrency}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

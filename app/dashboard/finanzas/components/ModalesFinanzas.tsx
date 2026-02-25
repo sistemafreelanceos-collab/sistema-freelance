@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { TrashIcon, PencilIcon, XMarkIcon, ArrowUturnLeftIcon, ExclamationTriangleIcon, CalendarDaysIcon, BanknotesIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect, useRef } from "react";
+import { TrashIcon, PencilIcon, XMarkIcon, ArrowUturnLeftIcon, ExclamationTriangleIcon, CalendarDaysIcon, BanknotesIcon, CameraIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { Button } from "@/app/components/ui/Button";
 
@@ -13,7 +13,7 @@ const CATEGORIAS_BASE = [
     "Ocio", "Mascotas", "Seguros", "Impuestos", "Negocio", "Nómina", "Varios"
 ];
 
-const getFechaHoyISO = () => new Date().toISOString().split('T')[0];
+const getFechaHoyISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
 // --- COMPONENTS ---
 
@@ -81,18 +81,20 @@ export function ModalDetalleGasto({ isOpen, onClose, gasto, movimientos }: any) 
     );
 }
 
-export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEditar }: any) {
+export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEditar, config }: any) {
     // 🟢 CORREGIDO: Usamos 'descripcion' en el estado inicial
     const [form, setForm] = useState({
         tipo: "gasto",
         monto: "",
-        moneda: "USD",
+        moneda: config?.meta_moneda || "USD",
         descripcion: "", // Antes 'referencia'
         categoria: "Varios",
         fecha: getFechaHoyISO(),
         cuenta_id: ""
     });
     const [usarInputTexto, setUsarInputTexto] = useState(false);
+    const [isScanning, setIsScanning] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -110,7 +112,7 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
                     setUsarInputTexto(true);
                 }
             } else {
-                setForm({ tipo: "egreso", monto: "", moneda: "USD", descripcion: "", categoria: "Varios", fecha: getFechaHoyISO(), cuenta_id: "" });
+                setForm({ tipo: "egreso", monto: "", moneda: config?.meta_moneda || "USD", descripcion: "", categoria: "Varios", fecha: getFechaHoyISO(), cuenta_id: "" });
                 setUsarInputTexto(false);
             }
         }
@@ -121,23 +123,113 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
     const handleSubmit = () => {
         if (!form.cuenta_id) return toast.error("⚠️ Selecciona una CUENTA.");
         if (!form.monto) return toast.error("⚠️ Falta el monto.");
+
+        // VALIDACIÓN DE SALDOS ESTRICTA (COMO UN BANCO)
+        if (form.tipo === 'egreso' || form.tipo === 'gasto') {
+            const cuentaSeleccionada = (cuentas || []).find((c: any) => c.id === form.cuenta_id);
+            if (cuentaSeleccionada) {
+                const montoIntento = Number(form.monto);
+                const saldoActual = Number(cuentaSeleccionada.saldo_calculado || 0);
+
+                if (montoIntento > saldoActual) {
+                    toast.error(`❌ Transacción rechazada: Fondos insuficientes en "${cuentaSeleccionada.nombre}". Tu saldo actual es $${saldoActual.toLocaleString('en-US')}.`);
+                    return; // ⛔ ESTO DETIENE LA EJECUCIÓN, NO DEJA CREAR EL GASTO
+                }
+            }
+        }
+
         const categoriaFinal = form.categoria.trim() === "" ? "Varios" : form.categoria;
 
-        // 🟢 CORREGIDO: Enviamos la estructura exacta que pide la base de datos
-        // Eliminamos 'fuente' y usamos 'descripcion'
         onSave({
             ...form,
             categoria: categoriaFinal,
             monto: Number(form.monto),
-            // fuente: 'manual' <--- ELIMINADO porque no existe en DB
         });
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Resetear el input para permitir subir el mismo archivo después
+        if (fileInputRef.current) fileInputRef.current.value = "";
+
+        setIsScanning(true);
+        const loadingToast = toast.loading("👀 Onyx está leyendo tu recibo...");
+
+        try {
+            // Convertir a base64
+            const base64Data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = error => reject(error);
+            });
+
+            // Separar el base64 real del encabezado data:image/...
+            const base64Part = base64Data.split(',')[1];
+            const mimeType = file.type;
+
+            const response = await fetch('/api/vision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64Part, mimeType })
+            });
+
+            if (!response.ok) throw new Error("Error en el servidor");
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Mapear los datos al formulario
+            setForm(prev => ({
+                ...prev,
+                monto: data.monto ? String(data.monto) : prev.monto,
+                descripcion: data.descripcion || prev.descripcion,
+                categoria: data.categoria || prev.categoria,
+                fecha: data.fecha || prev.fecha
+            }));
+
+            // Si la categoría devuelta no es base, habilitar input texto
+            if (data.categoria && !CATEGORIAS_BASE.includes(data.categoria)) {
+                setUsarInputTexto(true);
+            }
+
+            toast.success("✨ ¡Recibo escaneado y extraído!", { id: loadingToast });
+
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message || "❌ No se pudo procesar la imagen.", { id: loadingToast });
+        } finally {
+            setIsScanning(false);
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-            <div className="bg-[#1C2128] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl">
-                <h3 className="text-white font-bold text-xl mb-6">{movimientoEditar ? 'Editar Movimiento' : 'Registrar Transacción'}</h3>
-                <div className="space-y-4">
+            <div className={`bg-[#1C2128] border border-white/10 p-6 rounded-2xl w-full max-w-md shadow-2xl transition-all ${isScanning ? 'opacity-80 scale-[0.98]' : ''}`}>
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-white font-bold text-xl">{movimientoEditar ? 'Editar Movimiento' : 'Registrar Transacción'}</h3>
+                    {!movimientoEditar && (
+                        <div>
+                            <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isScanning}
+                                className="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 p-2 rounded-xl flex items-center gap-2 text-sm font-bold transition"
+                                title="Escanear Recibo / Factura"
+                            >
+                                <CameraIcon className={`w-5 h-5 ${isScanning ? 'animate-pulse' : ''}`} />
+                                {isScanning ? 'Mágia...' : 'Escanear'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className={`space-y-4 ${isScanning ? 'pointer-events-none grayscale opacity-50' : ''}`}>
                     <div className="grid grid-cols-2 gap-3">
                         <button
                             onClick={() => setForm({ ...form, tipo: "ingreso" })}
@@ -155,7 +247,9 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
 
                     <div className="flex gap-2">
                         <input type="number" placeholder="0.00" className="flex-1 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white text-xl outline-none" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })} />
-                        <select className="w-24 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}><option value="USD">USD</option><option value="COP">COP</option></select>
+                        <select className="w-24 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}>
+                            {(config?.monedas_activas || ["USD", "COP"]).map((m: string) => <option key={m} value={m}>{m}</option>)}
+                        </select>
                     </div>
 
                     {/* 🟢 CORREGIDO: Input mapeado a descripcion */}
@@ -198,15 +292,15 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
     );
 }
 
-export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar }: any) {
-    const [form, setForm] = useState({ categoria: "Alimentación", monto_limite: "", moneda: "USD" });
+export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar, config }: any) {
+    const [form, setForm] = useState({ categoria: "Alimentación", monto_limite: "", moneda: config?.meta_moneda || "USD" });
 
     useEffect(() => {
         if (isOpen) {
             if (presupuestoEditar) {
                 setForm({ categoria: presupuestoEditar.categoria, monto_limite: presupuestoEditar.monto_limite, moneda: presupuestoEditar.moneda || "USD" });
             } else {
-                setForm({ categoria: "Alimentación", monto_limite: "", moneda: "USD" });
+                setForm({ categoria: "Alimentación", monto_limite: "", moneda: config?.meta_moneda || "USD" });
             }
         }
     }, [isOpen, presupuestoEditar]);
@@ -223,7 +317,9 @@ export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar }:
                     </select>
                     <div className="flex gap-2">
                         <input type="number" placeholder="Límite" className="flex-1 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.monto_limite} onChange={e => setForm({ ...form, monto_limite: e.target.value })} />
-                        <select className="w-24 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}><option value="USD">USD</option><option value="COP">COP</option></select>
+                        <select className="w-24 bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}>
+                            {(config?.monedas_activas || ["USD", "COP"]).map((m: string) => <option key={m} value={m}>{m}</option>)}
+                        </select>
                     </div>
                     <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                         <Button onClick={onClose} variant="ghost">Cancelar</Button>
@@ -237,8 +333,8 @@ export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar }:
     );
 }
 
-export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas }: any) {
-    const [form, setForm] = useState({ nombre: "", monto: "", moneda: "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
+export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas, config }: any) {
+    const [form, setForm] = useState({ nombre: "", monto: "", moneda: config?.meta_moneda || "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
     const [usarInputTexto, setUsarInputTexto] = useState(false);
 
     useEffect(() => {
@@ -246,11 +342,12 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas }
             if (gastoEditar) {
                 const hoy = new Date();
                 const dia = gastoEditar.dia_pago || 1;
-                const fechaReconstruida = new Date(hoy.getFullYear(), hoy.getMonth(), dia).toISOString().split('T')[0];
+                const localTime = new Date(hoy.getFullYear(), hoy.getMonth(), dia).getTime() - new Date().getTimezoneOffset() * 60000;
+                const fechaReconstruida = new Date(localTime).toISOString().split('T')[0];
                 setForm({ nombre: gastoEditar.nombre, monto: gastoEditar.monto, moneda: gastoEditar.moneda || "USD", fecha_inicio: fechaReconstruida, categoria: gastoEditar.categoria, cuenta_id: gastoEditar.cuenta_id || "" });
                 if (!CATEGORIAS_BASE.includes(gastoEditar.categoria)) setUsarInputTexto(true);
             } else {
-                setForm({ nombre: "", monto: "", moneda: "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
+                setForm({ nombre: "", monto: "", moneda: config?.meta_moneda || "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
                 setUsarInputTexto(false);
             }
         }
@@ -273,8 +370,7 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas }
                     <div className="grid grid-cols-2 gap-3">
                         <input type="number" placeholder="Monto" className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })} />
                         <select className="w-full bg-[#0F1115] border border-gray-700 p-3 rounded-xl text-white outline-none" value={form.moneda} onChange={e => setForm({ ...form, moneda: e.target.value })}>
-                            <option value="USD">USD</option>
-                            <option value="COP">COP</option>
+                            {(config?.monedas_activas || ["USD", "COP"]).map((m: string) => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
 
