@@ -1,35 +1,33 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
-  // Tu llave maestra (La ...rTQY del proyecto Omar-IA)
-  const API_KEY = "AIzaSyAiYicKX3mXOmL1bGRJfWNG4OYNYG5rTQY";
+export const runtime = 'nodejs';
 
+export async function POST(req: Request) {
   try {
-    const { mensaje } = await request.json();
+    const { mensaje } = await req.json();
+    const apiKey = process.env.GEMINI_API_KEY;
 
-    // CAMBIO CLAVE: Usamos "gemini-pro" que es compatible con TODO.
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: mensaje }] }],
-        }),
-      }
-    );
-
-    const data = await response.json();
-    
-    if (data.error) {
-        return NextResponse.json({ text: "Error de Google: " + data.error.message }, { status: 500 });
+    if (!apiKey) {
+      return NextResponse.json({ text: "Falta la API Key de Gemini" }, { status: 500 });
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta.";
-    
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // Usamos genAI para estandarizar en todo el proyecto
+    // Pasamos a gemini-2.5-flash para obtener velocidad y compatibilidad moderna.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const result = await model.generateContent(mensaje);
+    const response = await result.response;
+    const text = response.text();
+
     return NextResponse.json({ text });
 
-  } catch (error) {
-    return NextResponse.json({ text: "Error del servidor interno." }, { status: 500 });
+  } catch (error: any) {
+    console.error("Chat API Error:", error);
+    return NextResponse.json(
+      { text: `Error del servidor interno u OpenAI. (Detalle: ${error.message})` },
+      { status: 500 }
+    );
   }
 }
