@@ -145,11 +145,14 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-[#161B22] p-8 rounded-2xl border border-gray-800 shadow-2xl relative overflow-hidden">
 
         {/* Header */}
-        <h1 className="text-3xl font-bold text-center mb-2">
+        <h1 className="text-3xl font-bold text-center mb-1">
           Onyx<span className="text-emerald-500">OS</span>
         </h1>
-        <p className="text-center text-gray-400 text-sm mb-6">
-          {isRecovery ? "Recuperar Contraseña" : (isRegister ? "Crea tu cuenta" : "Inicia sesión para continuar")}
+        <p className="text-center text-gray-300 font-medium text-sm mb-6 max-w-xs mx-auto">
+          El sistema operativo para freelancers que odian el desorden.
+        </p>
+        <p className="text-center text-gray-500 text-xs mb-6 uppercase tracking-wider font-bold">
+          {isRecovery ? "Recuperar Contraseña" : (isRegister ? "Crea tu cuenta" : "Inicia sesión")}
         </p>
 
         {isRecovery ? (
