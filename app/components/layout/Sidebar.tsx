@@ -8,7 +8,6 @@ import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
 export const MENU_ITEMS = [
     { ruta: "/dashboard", icon: "🏠", label: "Inicio" },
-    { ruta: "/dashboard/timeline", icon: "📝", label: "Bitácora" },
     { ruta: "/dashboard/calendario", icon: "📅", label: "Calendario" },
     { ruta: "/dashboard/clientes", icon: "👥", label: "Clientes" },
     { ruta: "/dashboard/proveedores", icon: "🏭", label: "Proveedores" },

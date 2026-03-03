@@ -33,18 +33,23 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
+    const isPublicRoute =
+        request.nextUrl.pathname === "/" ||
+        request.nextUrl.pathname.startsWith("/login") ||
+        request.nextUrl.pathname.startsWith("/auth");
+
     if (
         !user &&
-        !request.nextUrl.pathname.startsWith("/auth") &&
+        !isPublicRoute &&
         request.nextUrl.pathname.startsWith("/dashboard")
     ) {
         const url = request.nextUrl.clone();
-        url.pathname = "/"; // Redirigir a login
+        url.pathname = "/login"; // Redirigir a login
         return NextResponse.redirect(url);
     }
 
-    // SI hay usuario y está en el login (/), mandarlo al dashboard
-    if (user && request.nextUrl.pathname === "/") {
+    // SI hay usuario y está en el login o landing, mandarlo al dashboard
+    if (user && (request.nextUrl.pathname === "/" || request.nextUrl.pathname.startsWith("/login"))) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);
