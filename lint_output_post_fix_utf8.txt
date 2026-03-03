@@ -1,0 +1,771 @@
+﻿
+> sistema-freelance@0.1.0 lint
+> eslint
+
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\api\calendar\route.ts
+  75:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\api\cfo-ai\route.ts
+  50:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  68:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\api\chat\route.ts
+  26:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\api\daily-briefing\route.ts
+  39:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  64:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\api\generate-timeline-story\route.ts
+  33:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\api\vision\route.ts
+  76:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\MotivationSystem.tsx
+   5:10  warning  'toast' is defined but never used                                @typescript-eslint/no-unused-vars
+  95:21  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  95:36  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\layout\Sidebar.tsx
+  5:10  warning  'useEffect' is defined but never used         @typescript-eslint/no-unused-vars
+  5:21  warning  'useState' is defined but never used          @typescript-eslint/no-unused-vars
+  6:10  warning  'ChevronLeftIcon' is defined but never used   @typescript-eslint/no-unused-vars
+  6:27  warning  'ChevronRightIcon' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\layout\TopBar.tsx
+  220:29  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\layout\WorkspaceSwitcher.tsx
+   49:31  warning  'error' is assigned a value but never used                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   72:8   warning  React Hook useEffect has a missing dependency: 'currentWorkspace.owner_id'. Either include it or remove the dependency array                                                                                                                                                             react-hooks/exhaustive-deps
+  105:11  warning  'displayInitials' is assigned a value but never used                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+  123:33  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\modals\CreateWorkspaceModal.tsx
+   7:10  warning  'Dialog' is defined but never used        @typescript-eslint/no-unused-vars
+  66:25  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\modals\ManualUsuarioPanel.tsx
+   81:165  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   81:175  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   85:155  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   85:170  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   85:187  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   85:195  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  102:129  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  102:141  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  105:113  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  105:130  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  108:150  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  108:155  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  108:174  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  108:182  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  109:199  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  109:210  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  129:251  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  129:266  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  135:171  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  135:186  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  155:138  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  155:146  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  160:73   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  160:92   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  161:100  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  161:106  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  161:149  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  161:155  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  170:87   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  170:130  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  171:139  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  171:170  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  202:208  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  202:221  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  203:141  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  203:146  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  203:149  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  203:158  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  203:161  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  203:169  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  209:147  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  209:152  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\modals\RenameWorkspaceModal.tsx
+  47:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\modals\WelcomeModal.tsx
+  14:48  warning  'workspaceId' is defined but never used      @typescript-eslint/no-unused-vars
+  15:11  warning  'router' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\ui\CalendarPicker.tsx
+  8:24  warning  'ChevronLeftIcon' is defined but never used   @typescript-eslint/no-unused-vars
+  8:41  warning  'ChevronRightIcon' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\ui\CommandPalette.tsx
+   3:10  warning  'useEffect' is defined but never used       @typescript-eslint/no-unused-vars
+   3:21  warning  'useState' is defined but never used        @typescript-eslint/no-unused-vars
+   9:5   warning  'CreditCardIcon' is defined but never used  @typescript-eslint/no-unused-vars
+  11:5   warning  'ChartBarIcon' is defined but never used    @typescript-eslint/no-unused-vars
+  12:5   warning  'CogIcon' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\ui\TimePicker.tsx
+   3:20  warning  'useEffect' is defined but never used                            @typescript-eslint/no-unused-vars
+   3:31  warning  'useRef' is defined but never used                               @typescript-eslint/no-unused-vars
+  80:49  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  80:55  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\components\wiki\Editor.tsx
+   9:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  10:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\admin\AdminClientView.tsx
+   8:75  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  18:18  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\admin\page.tsx
+  2:39  warning  'updateUserRole' is defined but never used  @typescript-eslint/no-unused-vars
+  3:10  warning  'UserXP' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\components\CalendarBoard.tsx
+   21:11  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+   22:18  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+   25:25  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+   26:30  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+   72:33  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  102:33  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  168:15  warning  'isProject' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  172:13  error    'style' is never reassigned. Use 'const' instead  prefer-const
+  172:20  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  226:43  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  261:48  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  262:46  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  276:52  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\components\DailyCapacity.tsx
+   5:14  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:22  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\components\IncomingPayments.tsx
+   2:30  warning  'CalendarIcon' is defined but never used  @typescript-eslint/no-unused-vars
+   4:11  warning  'Proyecto' is defined but never used      @typescript-eslint/no-unused-vars
+  14:16  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:77  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:77  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\components\ModalesCalendario.tsx
+   3:10  warning  'CheckCircleIcon' is defined but never used  @typescript-eslint/no-unused-vars
+  13:17  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  13:41  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  14:17  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  57:52  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\components\NotesBoard.tsx
+  101:56  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\components\NotesBoard.tsx:101:56
+   99 |                                     transform: `rotate(${nota.rotacion}deg)`,
+  100 |                                     transformOrigin: 'top center', // Anclado al pin superior
+> 101 |                                     animationDelay: `${Math.random() * 2}s`, // Para que no todas se muevan al mismo tiempo
+      |                                                        ^^^^^^^^^^^^^ Cannot call impure function
+  102 |                                     fontFamily: '"Comic Sans MS", "Chalkboard SE", sans-serif',
+  103 |                                 }}
+  104 |                                 className={`relative p-5 w-full min-h-[120px] shadow-xl transition-all duration-300 hover:scale-[1.02] hover:z-20 cursor-grab active:cursor-grabbing group ${POSTIT_STYLES[nota.color]} ${getAgingStyle(nota.fecha)}`}  react-hooks/purity
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\calendario\page.tsx
+   27:118  warning  'syncGoogle' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   28:32   error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   40:33   error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  105:37   error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  138:62   error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\InvoicePDF.tsx
+   1:50  warning  'Image' is defined but never used         @typescript-eslint/no-unused-vars
+  37:15  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:14  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:13  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ModalDetalleCliente.tsx
+    4:19  warning  'Proyecto' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   13:14  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+   39:8   warning  React Hook useEffect has a missing dependency: 'loadDocs'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+   44:23  warning  'error' is assigned a value but never used                                                                         @typescript-eslint/no-unused-vars
+   63:23  warning  'error' is assigned a value but never used                                                                         @typescript-eslint/no-unused-vars
+   71:11  warning  'handleUpdateDoc' is assigned a value but never used                                                               @typescript-eslint/no-unused-vars
+   71:36  warning  'content' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+   71:45  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  106:25  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  122:8   warning  React Hook useEffect has a missing dependency: 'saveCurrentDoc'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  132:45  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  161:11  warning  'totalPagadoHistorico' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  172:21  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  173:18  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  184:37  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ModalDetalleProyecto.tsx
+  20:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ModalEditarProyecto.tsx
+  2:20  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ModalNuevoCliente.tsx
+  10:24  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  10:40  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:79  warning  'userId' is defined but never used        @typescript-eslint/no-unused-vars
+  45:21  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ModalNuevoProyecto.tsx
+   3:10  warning  'supabase' is defined but never used          @typescript-eslint/no-unused-vars
+   4:33  warning  'Proyecto' is defined but never used          @typescript-eslint/no-unused-vars
+  13:25  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  13:41  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  19:79  warning  'userId' is defined but never used            @typescript-eslint/no-unused-vars
+  20:10  warning  'loading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  82:12  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  96:21  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ModalPago.tsx
+   17:20  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   18:35  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   21:90  warning  'perfilUsuario' is defined but never used  @typescript-eslint/no-unused-vars
+   94:17  warning  'data' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  100:31  warning  'pago' is defined but never used           @typescript-eslint/no-unused-vars
+  100:37  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  185:25  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ProjectKanban.tsx
+   30:16   error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+   51:9    error  Error: Calling setState from useMemo may trigger an infinite loop
+
+Each time the memo callback is evaluated it will change state. This can cause a memoization dependency to change, running the memo function again and causing an infinite loop. Instead of setting state in useMemo(), prefer deriving the value during render. (https://react.dev/reference/react/useState).
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\ProjectKanban.tsx:51:9
+  49 |
+  50 |     useMemo(() => {
+> 51 |         setItems(proyectos);
+     |         ^^^^^^^^ Found setState() within useMemo()
+  52 |     }, [proyectos]);
+  53 |
+  54 |     const sensors = useSensors(  react-hooks/set-state-in-render
+   63:36   error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+  178:119  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+  215:47   error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+  246:65   error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\Components\TarjetaCliente.tsx
+   11:25  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   11:33  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   12:18  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   12:26  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   42:3   warning  'onEliminarProyecto' is defined but never used        @typescript-eslint/no-unused-vars
+   48:3   warning  'onNuevoProyecto' is defined but never used           @typescript-eslint/no-unused-vars
+   95:21  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  119:9   warning  'formatDateShort' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  121:12  warning  'y' is assigned a value but never used                @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\clientes\page.tsx
+   14:10  warning  'toast' is defined but never used                @typescript-eslint/no-unused-vars
+   81:33  warning  '_nuevoPago' is defined but never used           @typescript-eslint/no-unused-vars
+   81:45  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   81:50  warning  '_clienteActualizado' is defined but never used  @typescript-eslint/no-unused-vars
+   86:51  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  228:33  warning  'p' is defined but never used                    @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\ContractsTab.tsx
+  23:17  error    Error: Cannot access variable before it is declared
+
+`cargarDatos` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\ContractsTab.tsx:23:17
+  21 |
+  22 |   useEffect(() => {
+> 23 |     if (userId) cargarDatos();
+     |                 ^^^^^^^^^^^ `cargarDatos` accessed before it is declared
+  24 |   }, [userId]);
+  25 |
+  26 |   const cargarDatos = async () => {
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\ContractsTab.tsx:26:3
+  24 |   }, [userId]);
+  25 |
+> 26 |   const cargarDatos = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 27 |     const resP = await supabase.from("plantillas_contratos").select("*").eq("owner_id", userId);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |     if (resP.data) setPlantillas(resP.data);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 29 |
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 30 |     const resC = await supabase.from("clausulas_contractuales").select("*").eq("owner_id", userId);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 31 |     if (resC.data) setClausulas(resC.data);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 32 |   };
+     | ^^^^^ `cargarDatos` is declared here
+  33 |
+  34 |   // --- HANDLERS PLANTILLAS ---
+  35 |   const guardarPlantilla = async () => {  react-hooks/immutability
+  24:6   warning  React Hook useEffect has a missing dependency: 'cargarDatos'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\DataTab.tsx
+  36:46  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  47:25  warning  'data' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  47:31  warning  'error' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  47:70  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  81:25  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\ProfileTab.tsx
+   4:10  warning  'UserCircleIcon' is defined but never used                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  59:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  78:37  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\TeamTab.tsx
+    7:35  warning  'ShieldCheckIcon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+   11:44  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-explicit-any
+   12:44  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-explicit-any
+   53:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\components\TeamTab.tsx:53:9
+  51 |
+  52 |     useEffect(() => {
+> 53 |         fetchData();
+     |         ^^^^^^^^^ Avoid calling setState() directly within an effect
+  54 |     }, [currentWorkspace]);
+  55 |
+  56 |     const handleInvite = async () => {  react-hooks/set-state-in-effect
+   54:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/exhaustive-deps
+  227:49  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @next/next/no-img-element
+  227:49  warning  img elements must have an alt prop, either with meaningful text, or an empty string for decorative images                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      jsx-a11y/alt-text
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\configuracion\page.tsx
+  119:6   warning  React Hook useEffect has a missing dependency: 'currentWorkspace?.name'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  187:66  error    Unexpected any. Specify a different type                                                                                   @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\crash\page.tsx
+  3:10  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\cuentas\page.tsx
+  25:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\estadisticas\page.tsx
+   8:25  warning  'ExclamationTriangleIcon' is defined but never used  @typescript-eslint/no-unused-vars
+  14:7   warning  'COLORS_RISK' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  19:38  warning  'kpis' is assigned a value but never used            @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\CFOVirtual.tsx
+   14:56  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:22  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\GastosFijosTab.tsx
+   12:14  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   40:44  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   89:32  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   99:61  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  160:48  warning  'dias' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\ModalesFinanzas.tsx
+    4:10  warning  'TrashIcon' is defined but never used                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+    4:21  warning  'PencilIcon' is defined but never used                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+   20:76  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   24:46  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   26:16  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   26:24  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   28:62  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   64:43  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+   84:97  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  119:8   warning  React Hook useEffect has a missing dependency: 'config?.meta_moneda'. Either include it or remove the dependency array. If 'setForm' needs the current value of 'config.meta_moneda', you can also switch to useReducer instead of useState and read 'config.meta_moneda' in the reducer  react-hooks/exhaustive-deps
+  129:65  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  203:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  266:47  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  295:90  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  341:91  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  389:43  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  421:84  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  446:81  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  483:47  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\PresupuestosTab.tsx
+  40:13  error  Error: Cannot reassign variable after render completes
+
+Reassigning `totalP` after render has completed can cause inconsistent behavior on subsequent renders. Consider using state instead.
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\PresupuestosTab.tsx:40:13
+  38 |             const porcentaje = p.monto_limite > 0 ? (gastado / p.monto_limite) * 100 : 0;
+  39 |
+> 40 |             totalP += p.monto_limite;
+     |             ^^^^^^ Cannot reassign `totalP` after render completes
+  41 |             totalG += gastado;
+  42 |
+  43 |             let color = "bg-emerald-500";  react-hooks/immutability
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\RentabilidadTab.tsx
+  7:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\components\TableroTab.tsx
+   25:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\finanzas\page.tsx
+   7:8   warning  'SkeletonDashboard' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+  24:6   warning  React Hook useEffect has a missing dependency: 'startModuleTour'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  29:5   warning  'loading' is assigned a value but never used                                                                        @typescript-eslint/no-unused-vars
+  59:45  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+  65:46  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+  71:44  error    Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\BioDataChart.tsx
+  12:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\BodyBattery.tsx
+  24:5  error    Error: Cannot access variable before it is declared
+
+`cargarDatos` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\BodyBattery.tsx:24:5
+  22 |
+  23 |   useEffect(() => {
+> 24 |     cargarDatos();
+     |     ^^^^^^^^^^^ `cargarDatos` accessed before it is declared
+  25 |   }, [userId]);
+  26 |
+  27 |   const cargarDatos = async () => {
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\BodyBattery.tsx:27:3
+  25 |   }, [userId]);
+  26 |
+> 27 |   const cargarDatos = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |       const hoy = getFechaLocal();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 29 |       const { data } = await supabase.from("registros_sueno").select("*").eq("owner_id", userId).eq("fecha", hoy).single();
+     ÔÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |       setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |   };
+     | ^^^^^ `cargarDatos` is declared here
+  39 |
+  40 |   const calcularYGuardar = async () => {
+  41 |       // F├│rmula de Bater├¡a: 60% Horas + 40% Calidad  react-hooks/immutability
+  25:6  warning  React Hook useEffect has a missing dependency: 'cargarDatos'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\DailyJournal.tsx
+  28:9  error    Error: Cannot access variable before it is declared
+
+`cargarDiario` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\DailyJournal.tsx:28:9
+  26 |
+  27 |     useEffect(() => {
+> 28 |         cargarDiario();
+     |         ^^^^^^^^^^^^ `cargarDiario` accessed before it is declared
+  29 |     }, [userId]);
+  30 |
+  31 |     const cargarDiario = async () => {
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\DailyJournal.tsx:31:5
+  29 |     }, [userId]);
+  30 |
+> 31 |     const cargarDiario = async () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 32 |         const hoy = getFechaLocal();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 33 |         const { data } = await supabase.from("journal_estoico").select("contenido").eq("owner_id", userId).eq("fecha", hoy).single();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 34 |
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 35 |         if (data) setContenido(data.contenido);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 36 |         else setContenido(PROMPTS.join("\n\n")); // Cargar prompts por defecto si est├í vac├¡o
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     };
+     | ^^^^^^^ `cargarDiario` is declared here
+  38 |
+  39 |     const guardar = async () => {
+  40 |         setGuardando(true);  react-hooks/immutability
+  29:8  warning  React Hook useEffect has a missing dependency: 'cargarDiario'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\DeepWork.tsx
+    4:41  warning  'BoltIcon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+    9:16  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+   32:48  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+   40:29  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+   50:29  error    Error: Cannot access variable before it is declared
+
+`finalizarSesion` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\DeepWork.tsx:50:29
+  48 |                     if (s === 0) {
+  49 |                         if (minutos === 0) {
+> 50 |                             finalizarSesion();
+     |                             ^^^^^^^^^^^^^^^ `finalizarSesion` accessed before it is declared
+  51 |                             return 0;
+  52 |                         }
+  53 |                         setMinutos((m) => m - 1);
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\DeepWork.tsx:103:5
+  101 |     const pausarTimer = () => setActivo(!activo);
+  102 |
+> 103 |     const finalizarSesion = () => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 104 |         setActivo(false);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 105 |         setFase('resumen');
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^
+> 106 |     };
+      | ^^^^^^^ `finalizarSesion` is declared here
+  107 |
+  108 |     const guardarSesion = async () => {
+  109 |         const duracion = 90 - minutos;  react-hooks/immutability
+  172:44  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\HabitTracker.tsx
+  35:44  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  36:50  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  82:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\habitos\components\HabitTracker.tsx:82:9
+  80 |
+  81 |     useEffect(() => {
+> 82 |         cargarDatos();
+     |         ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  83 |     }, [userId]);
+  84 |
+  85 |     // --- ACCI├ôN: MARCAR/DESMARCAR CUALQUIER D├ìA ---  react-hooks/set-state-in-effect
+  83:8   warning  React Hook useEffect has a missing dependency: 'cargarDatos'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\layout.tsx
+  30:23  warning  'setPlanUsuario' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  69:39  error    Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\page.tsx
+    7:10  warning  'toast' is defined but never used         @typescript-eslint/no-unused-vars
+   70:64  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:43  warning  'b' is defined but never used             @typescript-eslint/no-unused-vars
+  194:45  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  194:53  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\perfil\page.tsx
+  137:21  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  238:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\suscripcion\page.tsx
+  25:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\dashboard\timeline\page.tsx
+   17:15  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+   53:61  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+   60:8   warning  React Hook useEffect has a missing dependency: 'loadEvents'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+  111:25  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  135:8   warning  React Hook useEffect has a missing dependency: 'generateStory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useCalendario.ts
+    1:10   warning  'useState' is defined but never used            @typescript-eslint/no-unused-vars
+    6:10   warning  'TipoNota' is defined but never used            @typescript-eslint/no-unused-vars
+   59:36   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   62:40   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   77:39   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   92:29   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+   93:30   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  107:39   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  121:45   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  153:43   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  156:81   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  247:54   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  256:65   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  272:70   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  273:31   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  303:34   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  324:24   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  346:33   warning  'args' is defined but never used                @typescript-eslint/no-unused-vars
+  346:39   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  357:27   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  360:26   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  360:106  error    Use the rest parameters instead of 'arguments'  prefer-rest-params
+  361:48   error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useClientes.ts
+   39:62  error    Unexpected any. Specify a different type                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   41:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   46:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   55:11  warning  The 'clientes' logical expression could make the dependencies of useMemo Hook (at line 62) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'clientes' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  129:51  warning  'clienteId' is defined but never used                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useCuentas.ts
+  20:8   warning  React Hook useEffect has a missing dependency: 'cargarCuentasYSaldo'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  48:72  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  49:71  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  51:68  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  71:41  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useDailyBriefing.ts
+   3:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useEstadisticas.ts
+   50:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:27  warning  's' is assigned a value but never used    @typescript-eslint/no-unused-vars
+   92:34  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:34  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:55  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:58  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useEventWatcher.ts
+    8:7   warning  'NOTIFICATION_SOUND' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   23:23  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useEventWatcher.ts:23:23
+  21 |     useEffect(() => {
+  22 |         const savedMin = localStorage.getItem('onyx_alert_minutes');
+> 23 |         if (savedMin) setAlertMinutes(parseInt(savedMin));
+     |                       ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  24 |
+  25 |         // Pedir permiso para Notificaciones Nativas
+  26 |         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {  react-hooks/set-state-in-effect
+   34:68  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+   64:30  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+   89:31  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  129:8   warning  React Hook useEffect has a missing dependency: 'checkEvents'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useExchangeRate.ts
+  61:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useFinanzas.ts
+    5:54  warning  'ConfigFinanzas' is defined but never used         @typescript-eslint/no-unused-vars
+   40:34  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   42:62  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   43:58  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   48:58  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   73:50  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  105:50  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  119:50  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  122:21  warning  'fecha_inicio' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  138:17  error    'tabla' is never reassigned. Use 'const' instead   prefer-const
+  167:32  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  168:33  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  169:31  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  170:42  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useHabitReminder.ts
+    3:23  warning  'useRouter' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+   15:68  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  122:8   warning  React Hook useEffect has a missing dependency: 'checkHabits'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useLogger.ts
+  12:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useNotificaciones.ts
+  47:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  62:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\hooks\useNotifications.ts
+  33:17  error  'virtualNotifications' is never reassigned. Use 'const' instead  prefer-const
+  47:37  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  68:40  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\invite\page.tsx
+   55:27  error  Unexpected any. Specify a different type                                                                                                               @typescript-eslint/no-explicit-any
+  107:29  error  Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\page.tsx
+   33:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\page.tsx:33:7
+  31 |     const savedEmail = localStorage.getItem("freelanceOS_email");
+  32 |     if (savedEmail) {
+> 33 |       setEmail(savedEmail);
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |       setRememberMe(true);
+  35 |     }
+  36 |   }, []);  react-hooks/set-state-in-effect
+   51:9   warning  'handleGoogleLogin' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  298:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @next/next/no-img-element
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\portal\[token]\page.tsx
+  120:96  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\providers\OnboardingProvider.tsx
+  69:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\app\providers\WorkspaceProvider.tsx
+   74:30  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   75:33  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+   89:55  error    Unexpected any. Specify a different type                                                                                @typescript-eslint/no-explicit-any
+  108:8   warning  React Hook useCallback has a missing dependency: 'workspaces.length'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\audit_script.js
+   1:26  error    A `require()` style import is forbidden    @typescript-eslint/no-require-imports
+   2:12  error    A `require()` style import is forbidden    @typescript-eslint/no-require-imports
+   3:7   warning  'path' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   3:14  error    A `require()` style import is forbidden    @typescript-eslint/no-require-imports
+   9:27  error    A `require()` style import is forbidden    @typescript-eslint/no-require-imports
+  14:10  warning  'e' is defined but never used              @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\debug_payment_script.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\lib\supabase\middleware.ts
+  20:58  warning  'options' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\lib\supabase\server.ts
+  1:35  warning  'CookieOptions' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\list_models.js
+  1:15  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\next.config.ts
+  22:17  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\scripts\simulate_scenario.js
+  2:9   warning  'createClient' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  2:26  error    A `require()` style import is forbidden            @typescript-eslint/no-require-imports
+  5:7   warning  'SUPABASE_URL' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  6:7   warning  'SUPABASE_KEY' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\test-key.js
+  1:32  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\omarm\OneDrive\Documentos\proyectos\sistema-freelance\types\index.ts
+  201:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  308:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 377 problems (265 errors, 112 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import CreateWorkspaceModal from "../components/modals/CreateWorkspaceModal";
 import { useDailyBriefing } from "../hooks/useDailyBriefing";
 import DailyBriefingModal from "./components/DailyBriefingModal";
+import { useProveedorPaymentAlerts } from "../hooks/useProveedorPaymentAlerts";
+import ProveedorPaymentReminderModal from "./components/ProveedorPaymentReminderModal";
 
 // --- TIPOS ---
 type AlertaPago = {
@@ -78,24 +80,34 @@ export default function DashboardPage() {
     activeProjects: totalProyectos
   });
 
+  // 🔔 ALERTAS DE PAGOS A PROVEEDORES
+  const { showModal: showProveedorAlert, pagosUrgentes, dismiss: dismissProveedorAlert } = useProveedorPaymentAlerts();
+
+  const [prevIsWorkspaceLoading, setPrevIsWorkspaceLoading] = useState(isWorkspaceLoading);
+  const [prevWorkspaceId, setPrevWorkspaceId] = useState(currentWorkspace?.id);
+
+  if (isWorkspaceLoading !== prevIsWorkspaceLoading || currentWorkspace?.id !== prevWorkspaceId) {
+    setPrevIsWorkspaceLoading(isWorkspaceLoading);
+    setPrevWorkspaceId(currentWorkspace?.id);
+    if (!isWorkspaceLoading) {
+      if (!currentWorkspace) {
+        setLoading(false);
+        setShowCreateModal(true);
+      } else {
+        const hasData = clientesActivos > 0 || totalProyectos > 0 || cuentasConSaldo.length > 0 || Object.keys(ingresosMesPorMoneda).length > 0;
+        if (!hasData) setLoading(true);
+      }
+    }
+  }
+
   useEffect(() => {
     // Si todavía está cargando el contexto global, esperamos
     if (isWorkspaceLoading) return;
 
-    // Si terminó de cargar y NO hay workspace, mostramos el modal de Crear Empresa Automáticamente
-    if (!currentWorkspace) {
-      setLoading(false);
-      // FORCE OPEN MODAL FOR NEW USERS
-      setShowCreateModal(true);
-      return;
-    }
+    // Si terminó de cargar y NO hay workspace, evitamos el useEffect de datos
+    if (!currentWorkspace) return;
 
     const init = async () => {
-      // SOLO mostrar pantalla de carga si no hay datos previos (Evita parpadeos)
-      // Usamos los estados para saber si ya se cargó algo antes
-      const hasData = clientesActivos > 0 || totalProyectos > 0 || cuentasConSaldo.length > 0 || Object.keys(ingresosMesPorMoneda).length > 0;
-
-      if (!hasData) setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/"); return; }
 
@@ -367,6 +379,13 @@ export default function DashboardPage() {
         briefingText={briefingText}
         onClose={closeBriefing}
         userName={userName}
+      />
+
+      {/* 🔔 ALERTA DE PAGOS A PROVEEDORES */}
+      <ProveedorPaymentReminderModal
+        isOpen={showProveedorAlert}
+        pagos={pagosUrgentes}
+        onClose={dismissProveedorAlert}
       />
 
     </div>

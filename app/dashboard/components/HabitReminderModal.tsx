@@ -62,13 +62,13 @@ export default function HabitReminderModal({
                                 </div>
 
                                 <Dialog.Title as="h3" className="text-2xl font-bold leading-6 text-white tracking-wide mb-2">
-                                    ¡Recarga tu Energía!
+                                    ¡Tu racha peligra!
                                 </Dialog.Title>
 
                                 <div className="mt-4">
                                     <p className="text-sm text-gray-300 leading-relaxed font-medium">
-                                        Te faltan <strong className="text-yellow-400">{missingCount} hábito{missingCount !== 1 ? 's' : ''}</strong> por completar hoy.
-                                        Recuerda que tu rutina define tus resultados.
+                                        Aún tienes <strong className="text-yellow-400">{missingCount} hábito{missingCount !== 1 ? 's' : ''} sin completar</strong> hoy.
+                                        Los grandes resultados se construyen con consistencia diaria — cada check cuenta.
                                     </p>
                                 </div>
 
@@ -79,14 +79,14 @@ export default function HabitReminderModal({
                                         className="w-full justify-center rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-white px-6 py-3 text-sm font-bold shadow-lg hover:shadow-yellow-500/30 hover:scale-[1.02] active:scale-95 transition-all focus:outline-none flex items-center gap-2"
                                         onClick={handleAceptar}
                                     >
-                                        🚀 Hacerlos ahora mismo
+                                        🚀 Completarlos ahora
                                     </button>
                                     <button
                                         type="button"
                                         className="w-full justify-center rounded-xl bg-transparent text-gray-400 border border-white/10 px-6 py-3 text-sm font-bold hover:bg-white/5 hover:text-white transition-all focus:outline-none"
                                         onClick={onClose}
                                     >
-                                        Más tarde
+                                        Recordarme en 1 hora
                                     </button>
                                 </div>
                             </Dialog.Panel>

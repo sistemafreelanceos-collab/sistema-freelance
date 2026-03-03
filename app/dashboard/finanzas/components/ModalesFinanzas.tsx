@@ -295,7 +295,12 @@ export function ModalMovimiento({ isOpen, onClose, onSave, cuentas, movimientoEd
 export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar, config }: any) {
     const [form, setForm] = useState({ categoria: "Alimentación", monto_limite: "", moneda: config?.meta_moneda || "USD" });
 
-    useEffect(() => {
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    const [prevPresupuestoId, setPrevPresupuestoId] = useState(presupuestoEditar?.id);
+
+    if (isOpen !== prevIsOpen || presupuestoEditar?.id !== prevPresupuestoId) {
+        setPrevIsOpen(isOpen);
+        setPrevPresupuestoId(presupuestoEditar?.id);
         if (isOpen) {
             if (presupuestoEditar) {
                 setForm({ categoria: presupuestoEditar.categoria, monto_limite: presupuestoEditar.monto_limite, moneda: presupuestoEditar.moneda || "USD" });
@@ -303,7 +308,7 @@ export function ModalPresupuesto({ isOpen, onClose, onSave, presupuestoEditar, c
                 setForm({ categoria: "Alimentación", monto_limite: "", moneda: config?.meta_moneda || "USD" });
             }
         }
-    }, [isOpen, presupuestoEditar]);
+    }
 
     if (!isOpen) return null;
 
@@ -337,7 +342,12 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas, 
     const [form, setForm] = useState({ nombre: "", monto: "", moneda: config?.meta_moneda || "USD", fecha_inicio: getFechaHoyISO(), categoria: "Servicios", cuenta_id: "" });
     const [usarInputTexto, setUsarInputTexto] = useState(false);
 
-    useEffect(() => {
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    const [prevGastoId, setPrevGastoId] = useState(gastoEditar?.id);
+
+    if (isOpen !== prevIsOpen || gastoEditar?.id !== prevGastoId) {
+        setPrevIsOpen(isOpen);
+        setPrevGastoId(gastoEditar?.id);
         if (isOpen) {
             if (gastoEditar) {
                 const hoy = new Date();
@@ -351,7 +361,7 @@ export function ModalGastoFijo({ isOpen, onClose, onSave, gastoEditar, cuentas, 
                 setUsarInputTexto(false);
             }
         }
-    }, [isOpen, gastoEditar]);
+    }
 
     const handleGuardar = () => {
         const diaPago = parseInt(form.fecha_inicio.split('-')[2]);
@@ -436,11 +446,16 @@ export function ModalConfirmacion({ isOpen, onClose, onConfirm, titulo, mensaje 
 export function ModalPagarGasto({ isOpen, onClose, onConfirm, gasto, cuentas }: any) {
     const [cuentaId, setCuentaId] = useState("");
 
-    useEffect(() => {
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    const [prevGastoId, setPrevGastoId] = useState(gasto?.id);
+
+    if (isOpen !== prevIsOpen || gasto?.id !== prevGastoId) {
+        setPrevIsOpen(isOpen);
+        setPrevGastoId(gasto?.id);
         if (isOpen && gasto) {
             setCuentaId(gasto.cuenta_id || (cuentas.length > 0 ? cuentas[0].id : ""));
         }
-    }, [isOpen, gasto, cuentas]);
+    }
 
     if (!isOpen || !gasto) return null;
 

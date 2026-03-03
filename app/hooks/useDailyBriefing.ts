@@ -50,9 +50,9 @@ export function useDailyBriefing(payload: any) {
         const currentMinute = now.getMinutes();
 
         // ==========================================
-        // MODO PRUEBA ACTIVADO
+        // MODO PRUEBA DESACTIVADO (producción)
         // ==========================================
-        const FORCE_TEST = true;
+        const FORCE_TEST = false;
 
         if (FORCE_TEST) {
             if (!hasFiredRef.current) {

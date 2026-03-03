@@ -155,84 +155,167 @@ export default function GastosFijosTab({ gastosFijos, cuentas, movimientos, onOp
                     No tienes gastos fijos registrados.
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {gastosFijos.map((gf) => {
-                        const { estado, texto, dias } = getEstadoGasto(gf);
-                        const esVencido = estado === 'vencido';
-                        const esPagado = estado === 'pagado';
-                        const cuentaAsociada = cuentas.find(c => c.id === gf.cuenta_id);
+                <>
+                    {/* ── RESUMEN MENSUAL ── */}
+                    {(() => {
+                        // Agrupar por moneda
+                        const porMoneda: Record<string, { total: number; pagado: number; pendiente: number; count: number; pagadoCount: number }> = {};
+                        gastosFijos.forEach(gf => {
+                            const m = gf.moneda || 'USD';
+                            if (!porMoneda[m]) porMoneda[m] = { total: 0, pagado: 0, pendiente: 0, count: 0, pagadoCount: 0 };
+                            const { estado } = getEstadoGasto(gf);
+                            porMoneda[m].total += gf.monto;
+                            porMoneda[m].count += 1;
+                            if (estado === 'pagado') {
+                                porMoneda[m].pagado += gf.monto;
+                                porMoneda[m].pagadoCount += 1;
+                            } else {
+                                porMoneda[m].pendiente += gf.monto;
+                            }
+                        });
 
                         return (
-                            <div
-                                key={gf.id}
-                                onClick={() => onSelect(gf)}
-                                className={`p-5 rounded-xl border transition flex flex-col justify-between gap-4 relative cursor-pointer group 
-                                ${esPagado ? 'bg-[#1C2128]/50 border-emerald-500/30' :
-                                        esVencido ? 'bg-red-900/10 border-red-500/50 hover:bg-red-900/20' :
-                                            'bg-[#1C2128] border-white/10 hover:border-indigo-500/50 hover:bg-white/5'}`}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <p className={`font-bold capitalize ${esPagado ? 'text-emerald-400' : esVencido ? 'text-red-400' : 'text-white'}`}>{gf.nombre}</p>
-                                            <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 uppercase">{gf.categoria}</span>
-                                        </div>
-                                        <p className="text-xs text-indigo-300 mt-1 flex items-center gap-1">
-                                            <CalendarDaysIcon className="w-3 h-3" />
-                                            <span className="capitalize">{getProximaFecha(gf.dia_pago, esPagado)}</span>
-                                        </p>
-                                    </div>
-                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                        <button onClick={() => onEdit(gf)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition"><PencilIcon className="w-4 h-4" /></button>
-                                        <button onClick={() => onDelete(gf.id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><TrashIcon className="w-4 h-4" /></button>
-                                    </div>
-                                </div>
+                            <div className="space-y-3">
+                                {Object.entries(porMoneda).map(([moneda, stats]) => {
+                                    const pct = stats.total > 0 ? Math.round((stats.pagado / stats.total) * 100) : 0;
+                                    const color = pct >= 80 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+                                    const glowColor = pct >= 80 ? 'rgba(16,185,129,0.4)' : pct >= 40 ? 'rgba(234,179,8,0.4)' : 'rgba(239,68,68,0.4)';
+                                    const textColor = pct >= 80 ? 'text-emerald-400' : pct >= 40 ? 'text-yellow-400' : 'text-red-400';
+                                    const fmtMoneda = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: moneda, maximumFractionDigits: 0 }).format(n);
 
-                                <div>
-                                    <p className="text-xl font-mono text-white font-bold">${Number(gf.monto).toLocaleString()} <span className="text-[10px] text-gray-500">{gf.moneda || 'USD'}</span></p>
+                                    return (
+                                        <div key={moneda} className="bg-[#161B22] border border-white/10 rounded-2xl p-5 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none"
+                                                style={{ backgroundColor: glowColor.replace('0.4', '0.06') }} />
 
-                                    {cuentaAsociada ? (
-                                        <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                            Via: <span className="text-emerald-400 font-bold">{cuentaAsociada.nombre}</span>
-                                        </p>
-                                    ) : (
-                                        <p className="text-[10px] text-gray-500 mt-1 italic">
-                                            Paga desde cuenta principal
-                                        </p>
-                                    )}
-                                </div>
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                                                {/* Izquierda: total */}
+                                                <div>
+                                                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">
+                                                        Gastos Recurrentes del Mes · {moneda}
+                                                    </p>
+                                                    <p className="text-3xl font-bold text-white">{fmtMoneda(stats.total)}</p>
+                                                </div>
 
-                                <div className="pt-3 border-t border-white/5 flex items-center justify-between">
-                                    {esPagado ? (
-                                        <div className="flex items-center gap-2 text-emerald-500 text-sm font-bold bg-emerald-500/10 px-3 py-1.5 rounded-lg w-full justify-center">
-                                            <CheckCircleIcon className="w-5 h-5" /> {texto}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-between w-full gap-3">
-                                            <div className={`flex items-center gap-1 text-xs font-bold ${esVencido ? 'text-red-400 animate-pulse' : 'text-orange-400'}`}>
-                                                {esVencido ? <ExclamationTriangleIcon className="w-4 h-4" /> : <ClockIcon className="w-4 h-4" />}
-                                                {texto}
+                                                {/* Derecha: pagado / pendiente */}
+                                                <div className="flex gap-6 text-right">
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Pagado</p>
+                                                        <p className="text-lg font-bold text-emerald-400">{fmtMoneda(stats.pagado)}</p>
+                                                        <p className="text-[10px] text-gray-500">{stats.pagadoCount} de {stats.count}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Pendiente</p>
+                                                        <p className={`text-lg font-bold ${stats.pendiente > 0 ? 'text-red-400' : 'text-gray-600'}`}>
+                                                            {fmtMoneda(stats.pendiente)}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-500">{stats.count - stats.pagadoCount} gastos</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Avance</p>
+                                                        <p className={`text-lg font-bold ${textColor}`}>{pct}%</p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <button onClick={(e) => abrirModalPago(e, gf)} disabled={pagandoId === gf.id} className="bg-white text-black text-xs font-bold px-4 py-2 rounded-lg hover:scale-105 transition shadow-lg flex-1">
-                                                {pagandoId === gf.id ? "..." : "Pagar"}
-                                            </button>
+
+                                            {/* Barra de progreso */}
+                                            <div className="w-full bg-white/5 rounded-full h-2.5 overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-700 ${color}`}
+                                                    style={{ width: `${pct}%`, boxShadow: `0 0 10px ${glowColor}` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-1.5">
+                                                <p className="text-[10px] text-gray-500">{stats.pagadoCount} pagados este mes</p>
+                                                <p className="text-[10px] text-gray-500">{fmtMoneda(stats.total)} total mensual</p>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
+                                    );
+                                })}
                             </div>
                         );
-                    })}
-                </div>
-            )}
+                    })()}
 
-            <ModalPagarGasto
-                isOpen={!!gastoAPagar}
-                onClose={() => setGastoAPagar(null)}
-                onConfirm={handleConfirmarPago}
-                gasto={gastoAPagar}
-                cuentas={cuentas}
-            />
+                    {/* ── GRID DE GASTOS ── */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {gastosFijos.map((gf) => {
+                            const { estado, texto, dias } = getEstadoGasto(gf);
+                            const esVencido = estado === 'vencido';
+                            const esPagado = estado === 'pagado';
+                            const cuentaAsociada = cuentas.find(c => c.id === gf.cuenta_id);
+
+                            return (
+                                <div
+                                    key={gf.id}
+                                    onClick={() => onSelect(gf)}
+                                    className={`p-5 rounded-xl border transition flex flex-col justify-between gap-4 relative cursor-pointer group 
+                                ${esPagado ? 'bg-[#1C2128]/50 border-emerald-500/30' :
+                                            esVencido ? 'bg-red-900/10 border-red-500/50 hover:bg-red-900/20' :
+                                                'bg-[#1C2128] border-white/10 hover:border-indigo-500/50 hover:bg-white/5'}`}
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className={`font-bold capitalize ${esPagado ? 'text-emerald-400' : esVencido ? 'text-red-400' : 'text-white'}`}>{gf.nombre}</p>
+                                                <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 uppercase">{gf.categoria}</span>
+                                            </div>
+                                            <p className="text-xs text-indigo-300 mt-1 flex items-center gap-1">
+                                                <CalendarDaysIcon className="w-3 h-3" />
+                                                <span className="capitalize">{getProximaFecha(gf.dia_pago, esPagado)}</span>
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                            <button onClick={() => onEdit(gf)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition"><PencilIcon className="w-4 h-4" /></button>
+                                            <button onClick={() => onDelete(gf.id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><TrashIcon className="w-4 h-4" /></button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xl font-mono text-white font-bold">${Number(gf.monto).toLocaleString()} <span className="text-[10px] text-gray-500">{gf.moneda || 'USD'}</span></p>
+
+                                        {cuentaAsociada ? (
+                                            <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                Via: <span className="text-emerald-400 font-bold">{cuentaAsociada.nombre}</span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-[10px] text-gray-500 mt-1 italic">
+                                                Paga desde cuenta principal
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-3 border-t border-white/5 flex items-center justify-between">
+                                        {esPagado ? (
+                                            <div className="flex items-center gap-2 text-emerald-500 text-sm font-bold bg-emerald-500/10 px-3 py-1.5 rounded-lg w-full justify-center">
+                                                <CheckCircleIcon className="w-5 h-5" /> {texto}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between w-full gap-3">
+                                                <div className={`flex items-center gap-1 text-xs font-bold ${esVencido ? 'text-red-400 animate-pulse' : 'text-orange-400'}`}>
+                                                    {esVencido ? <ExclamationTriangleIcon className="w-4 h-4" /> : <ClockIcon className="w-4 h-4" />}
+                                                    {texto}
+                                                </div>
+                                                <button onClick={(e) => abrirModalPago(e, gf)} disabled={pagandoId === gf.id} className="bg-white text-black text-xs font-bold px-4 py-2 rounded-lg hover:scale-105 transition shadow-lg flex-1">
+                                                    {pagandoId === gf.id ? "..." : "Pagar"}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <ModalPagarGasto
+                        isOpen={!!gastoAPagar}
+                        onClose={() => setGastoAPagar(null)}
+                        onConfirm={handleConfirmarPago}
+                        gasto={gastoAPagar}
+                        cuentas={cuentas}
+                    />
+                </>
+            )}
         </div>
     );
 }

@@ -15,9 +15,14 @@ export default function TeamTab() {
     const [loading, setLoading] = useState(true);
     const [sendingInvite, setSendingInvite] = useState(false);
 
+    const [prevWorkspaceId, setPrevWorkspaceId] = useState<string | undefined>(currentWorkspace?.id);
+    if (currentWorkspace?.id !== prevWorkspaceId) {
+        setPrevWorkspaceId(currentWorkspace?.id);
+        setLoading(true);
+    }
+
     const fetchData = async () => {
         if (!currentWorkspace?.id) return;
-        setLoading(true);
 
         // 1. Fetch Members
         const { data: membersData, error: membersError } = await supabase

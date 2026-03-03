@@ -25,6 +25,7 @@ export default function ClientesPage() {
     actualizarProyecto,
     actualizarClienteLocal,
     eliminarProyecto,
+    eliminarCliente,
     userId,
     packs,
     cuentas,
@@ -157,6 +158,13 @@ export default function ClientesPage() {
                     onVerDetalleProyecto={handleVerDetalleProyecto}
                     onOpenPago={handleRegistrarPago}
                     onVerCliente={handleVerCliente}
+                    onEliminarCliente={(id) => {
+                      toast.error('¿Eliminar este cliente y todos sus proyectos?', {
+                        action: { label: 'Eliminar', onClick: () => eliminarCliente(id) },
+                        cancel: { label: 'Cancelar', onClick: () => { } },
+                        duration: 5000,
+                      });
+                    }}
                   />
                 ))
               ) : (

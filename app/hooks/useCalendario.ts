@@ -54,6 +54,14 @@ export function useCalendario(viewDate: Date = new Date()) {
                 .eq('workspace_id', currentWorkspace?.id)
                 .eq('activo', true);
 
+            // 6. Cargar fechas de pago de proyectos de proveedor
+            const { data: proyectosProveedor } = await supabase
+                .from('proyectos_proveedor')
+                .select('id, nombre, monto, moneda, fecha_pago, estado, proveedor_id')
+                .eq('workspace_id', currentWorkspace?.id)
+                .neq('estado', 'completado')
+                .not('fecha_pago', 'is', null);
+
             // --- PROCESAMIENTO ---
 
             const eventosMapeados: any[] = [];
@@ -146,6 +154,25 @@ export function useCalendario(viewDate: Date = new Date()) {
                     color: 'red',
                     details: g.categoria,
                     resource: { tipo_evento: 'gasto' } // Para filtros en page.tsx
+                });
+            });
+
+            // F'. Pagos de Proyectos de Proveedor
+            (proyectosProveedor || []).forEach((proy: any) => {
+                if (!proy.fecha_pago) return;
+
+                const hoyD = new Date();
+                const fechaPago = new Date(proy.fecha_pago + 'T12:00:00');
+                const esVencido = fechaPago < hoyD;
+
+                eventosMapeados.push({
+                    id: `proveedor-${proy.id}`,
+                    title: `💸 ${proy.nombre}`,
+                    start: safeDateStr(proy.fecha_pago),
+                    end: safeDateStr(proy.fecha_pago),
+                    type: 'pago_proveedor',
+                    color: esVencido ? 'red' : 'orange',
+                    resource: { tipo_evento: 'gasto', es_automatico: true, monto: proy.monto, moneda: proy.moneda }
                 });
             });
 

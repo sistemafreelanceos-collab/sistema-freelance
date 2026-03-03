@@ -3,95 +3,147 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useCalendario } from "../../hooks/useCalendario";
 import { Views } from 'react-big-calendar';
 import moment from 'moment';
-import { PlusIcon, ArrowDownTrayIcon, ArrowPathIcon } from "@heroicons/react/24/solid";
+import { PlusIcon, ArrowDownTrayIcon, BellAlertIcon } from "@heroicons/react/24/solid";
 import { toast } from "sonner";
 import { TipoNota, EventoCalendario } from "../../../types";
 
 import CalendarBoard from "./components/CalendarBoard";
 import NotesBoard from "./components/NotesBoard";
-import IncomingPayments from "./components/IncomingPayments";
-import DailyCapacity from "./components/DailyCapacity";
-import FilterBar from "./components/FilterBar";
+import TodayPanel from "./components/TodayPanel";
+import FilterBar, { FiltrosCalendario } from "./components/FilterBar";
 import { ModalCrear, ModalDetalle } from "./components/ModalesCalendario";
-import EventNotifier from "./components/EventNotifier"; // Nuevo
-import { BellAlertIcon } from "@heroicons/react/24/solid";
+import EventNotifier from "./components/EventNotifier";
 import SkeletonDashboard from "../components/SkeletonDashboard";
 
 export default function CalendarioPage() {
-    // Estados UI Local
-    const [view, setView] = useState(Views.MONTH);
+    // ── Vista y navegación ────────────────────────────────────────────
+    const [view, setView] = useState(Views.WEEK); // Semana como default
     const [date, setDate] = useState(new Date());
 
     const {
-        loading, eventosDB, postIts, proyectosRaw, proyectosList,
-        guardarTarea, editarTarea, guardarNota, editarNota, borrarItem, completarTarea, updateTaskDate, saveSession, syncGoogle
+        loading, eventosDB, postIts, proyectosRaw,
+        guardarTarea, editarTarea, guardarNota, editarNota, borrarItem, completarTarea, updateTaskDate, saveSession
     } = useCalendario(date) as any;
 
-    const [filtros, setFiltros] = useState({ tareas: true, cobros: true });
+    // ── Filtros ────────────────────────────────────────────────────────
+    const [filtros, setFiltros] = useState<FiltrosCalendario>({
+        tareas: true,
+        cobros: true,
+        proveedores: true,
+        soloUrgentes: false,
+        solohoy: false,
+    });
 
+    const toggleFiltro = (key: keyof FiltrosCalendario) =>
+        setFiltros(prev => ({ ...prev, [key]: !prev[key] }));
+
+    // ── Modales ────────────────────────────────────────────────────────
     const [modalAbierto, setModalAbierto] = useState(false);
     const [modalTipo, setModalTipo] = useState<'tarea' | 'postit'>('tarea');
     const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null);
-    const [eventoAEditar, setEventoAEditar] = useState<string | null>(null); // ID del evento a editar
-    const [alarmEvent, setAlarmEvent] = useState<EventoCalendario | null>(null); // Evento sonando
+    const [eventoAEditar, setEventoAEditar] = useState<string | null>(null);
+    const [alarmEvent, setAlarmEvent] = useState<EventoCalendario | null>(null);
 
-    // Listener para Alarma
+    const [formulario, setFormulario] = useState({
+        titulo: "", descripcion: "", fecha: "", hora: "09:00",
+        categoria: "Diseño" as string, colorPostit: "amarillo" as TipoNota,
+        proyectoId: "", recurrente: false
+    });
+
+    // ── Alarma ────────────────────────────────────────────────────────
     useEffect(() => {
         const handleAlarm = (e: any) => {
             setAlarmEvent(e.detail);
-            const audio = new Audio('/alarm.mp3'); // Opcional: si existe
-            audio.play().catch(() => { }); // Ignorar error si no hay audio
+            new Audio('/alarm.mp3').play().catch(() => { });
         };
         window.addEventListener('calendar-alarm', handleAlarm);
         return () => window.removeEventListener('calendar-alarm', handleAlarm);
     }, []);
 
-    const [formulario, setFormulario] = useState({
-        titulo: "", descripcion: "", fecha: "", hora: "09:00", categoria: "Diseño" as string, colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false
-    });
+    const onNavigate = useCallback((newDate: Date) => setDate(newDate), []);
 
-    const onNavigate = useCallback((newDate: Date) => setDate(newDate), [setDate]);
+    // ── Filtrado de eventos ───────────────────────────────────────────
+    const HOY_STR = useMemo(() => moment().format('YYYY-MM-DD'), []);
 
-    // Filtros UI
     const eventosVisibles = useMemo(() => {
         let lista = [...eventosDB];
-        if (!filtros.tareas) lista = lista.filter(e => e.resource?.tipo_evento !== 'tarea' && e.resource?.tipo_evento !== 'proyecto');
-        if (!filtros.cobros) lista = lista.filter(e => e.resource?.tipo_evento !== 'cobro' && e.resource?.tipo_evento !== 'gasto');
-        return lista;
-    }, [eventosDB, filtros]);
 
-    // Handlers
+        // Filtros de tipo
+        if (!filtros.tareas) {
+            lista = lista.filter(e => {
+                const tipo = (e as any).type;
+                return !['tarea', 'entrega'].includes(tipo) && e.resource?.tipo_evento !== 'tarea' && e.resource?.tipo_evento !== 'proyecto';
+            });
+        }
+        if (!filtros.cobros) {
+            lista = lista.filter(e => {
+                const tipo = (e as any).type;
+                return !['cobro', 'proximo_cobro', 'gasto_fijo'].includes(tipo);
+            });
+        }
+        if (!filtros.proveedores) {
+            lista = lista.filter(e => (e as any).type !== 'pago_proveedor');
+        }
+
+        // Filtros rápidos
+        if (filtros.solohoy) {
+            lista = lista.filter(e => {
+                try { return moment(e.start).format('YYYY-MM-DD') === HOY_STR; }
+                catch { return false; }
+            });
+        }
+        if (filtros.soloUrgentes) {
+            lista = lista.filter(e => {
+                // Solo eventos de pago/cobro dentro de 7 días
+                const tipo = (e as any).type;
+                const isPago = ['pago_proveedor', 'gasto_fijo', 'proximo_cobro', 'cobro'].includes(tipo);
+                if (!isPago) return true; // mantener tareas siempre
+                try {
+                    const diff = moment(e.start).diff(moment(), 'days');
+                    return diff >= -1 && diff <= 7;
+                } catch { return false; }
+            });
+        }
+
+        return lista;
+    }, [eventosDB, filtros, HOY_STR]);
+
+    // Proyectos de proveedor filtrados del calendario (para TodayPanel)
+    const pagosProveedores = useMemo(() =>
+        eventosDB
+            .filter((e: any) => e.type === 'pago_proveedor')
+            .map((e: any) => ({
+                id: e.id,
+                nombre: e.title.replace('💸 ', ''),
+                monto: e.resource?.monto || 0,
+                moneda: e.resource?.moneda || 'USD',
+                fecha_pago: moment(e.start).format('YYYY-MM-DD'),
+            })),
+        [eventosDB]
+    );
+
+    // ── Handlers ──────────────────────────────────────────────────────
     const handleGuardar = async () => {
         if (!formulario.titulo && modalTipo === 'tarea') return toast.warning("Falta título");
-
         if (modalTipo === 'tarea') {
-            if (eventoAEditar) {
-                await editarTarea(eventoAEditar, formulario);
-            } else {
-                await guardarTarea(formulario, formulario.recurrente);
-            }
+            if (eventoAEditar) await editarTarea(eventoAEditar, formulario);
+            else await guardarTarea(formulario, formulario.recurrente);
         } else {
             if (!formulario.titulo) return toast.warning("Nota vacía");
-            if (eventoAEditar) {
-                await editarNota(eventoAEditar, formulario.titulo, formulario.colorPostit);
-            } else {
-                await guardarNota(formulario.titulo, formulario.colorPostit);
-            }
+            if (eventoAEditar) await editarNota(eventoAEditar, formulario.titulo, formulario.colorPostit);
+            else await guardarNota(formulario.titulo, formulario.colorPostit);
         }
         setModalAbierto(false);
-        setEventoAEditar(null); // Reset
+        setEventoAEditar(null);
     };
 
     const handleEditar = (evento: EventoCalendario) => {
         setEventoAEditar(evento.id);
-        const fecha = moment(evento.start).format('YYYY-MM-DD');
-        const hora = moment(evento.start).format('HH:mm');
-
         setFormulario({
-            titulo: evento.title.replace(/FOLDER|📂 /g, '').split(': ')[1] || evento.title, // Limpieza básica
+            titulo: evento.title.replace(/FOLDER|📂 /g, '').split(': ')[1] || evento.title,
             descripcion: evento.resource?.descripcion || "",
-            fecha,
-            hora,
+            fecha: moment(evento.start).format('YYYY-MM-DD'),
+            hora: moment(evento.start).format('HH:mm'),
             categoria: evento.resource?.categoria || "General",
             colorPostit: "amarillo",
             proyectoId: evento.resource?.projectId || "",
@@ -105,14 +157,8 @@ export default function CalendarioPage() {
     const handleEditarNota = (nota: any) => {
         setEventoAEditar(nota.id);
         setFormulario({
-            titulo: nota.texto, // En notas usamos 'titulo' del form como texto
-            descripcion: "",
-            fecha: moment().format('YYYY-MM-DD'),
-            hora: "",
-            categoria: "",
-            colorPostit: nota.color,
-            proyectoId: "",
-            recurrente: false
+            titulo: nota.texto, descripcion: "", fecha: moment().format('YYYY-MM-DD'),
+            hora: "", categoria: "", colorPostit: nota.color, proyectoId: "", recurrente: false
         });
         setModalTipo('postit');
         setModalAbierto(true);
@@ -136,89 +182,129 @@ export default function CalendarioPage() {
     };
 
     const onEventDrop = useCallback(async ({ event, start }: any) => {
-        if (event.resource.es_automatico) {
+        if (event.resource?.es_automatico) {
             toast.warning("Los eventos automáticos no se pueden mover");
             return;
         }
         toast.promise(updateTaskDate(event.id, start), {
-            loading: 'Actualizando hora...',
-            success: 'Evento reprogramado',
-            error: 'Error al mover evento'
+            loading: 'Actualizando...', success: 'Evento movido', error: 'Error al mover'
         });
     }, [updateTaskDate]);
 
-    // NUEVO: Manejador para cuando se suelta un Proyecto del Kanban al Calendario
-    const handleProjectDrop = async (projectId: string, dropDate: Date) => {
-        const proyecto = proyectosRaw.find(p => p.id === projectId);
-        if (!proyecto) return;
-
-        const dateStr = moment(dropDate).format('YYYY-MM-DD');
-
-        // Crear como "Tarea" para que ocupe espacio (bloqueos de tiempo reales) en el grid del calendario
-        const nuevaTarea = {
-            titulo: `[TB] ${proyecto.nombre}`,
-            descripcion: "Bloqueo de tiempo asignado desde Kanban.",
-            fecha: dateStr,
-            hora: "09:00",
-            horaFin: "11:00", // Por defecto bloqueamos 2 horas
-            categoria: "Diseño",
-            proyectoId: projectId
-        };
-
-        toast.promise(guardarTarea(nuevaTarea, false), {
-            loading: 'Bloqueando tiempo en agenda...',
-            success: 'Bloque agendado en el calendario ⏳',
-            error: 'Error al bloquear tiempo'
+    const abrirNuevaTarea = (fecha?: string) => {
+        setFormulario({
+            titulo: "", descripcion: "", fecha: fecha || moment().format('YYYY-MM-DD'),
+            hora: "09:00", categoria: "Diseño", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false
         });
+        setModalTipo('tarea');
+        setEventoAEditar(null);
+        setModalAbierto(true);
     };
-
-    const descargarICS = () => { toast.info("Exportación iCal - Próximamente"); };
 
     if (loading) return <SkeletonDashboard />;
 
     return (
         <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row overflow-hidden bg-[#0D1117]">
-            <div className="flex-1 p-6 flex flex-col h-full overflow-hidden">
-                <div className="flex justify-between items-end mb-4">
-                    <div><h1 className="text-3xl font-bold text-white">Agenda Operativa</h1><p className="text-gray-400 text-sm">Finanzas, Proyectos y Tiempo.</p></div>
+            {/* ── Calendario principal ─────────────────────────────── */}
+            <div className="flex-1 p-4 flex flex-col h-full overflow-hidden gap-3">
+                {/* Header */}
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-white">Agenda</h1>
+                        <p className="text-gray-500 text-xs">{moment().format('dddd, D [de] MMMM [de] YYYY')}</p>
+                    </div>
                     <div className="flex gap-2">
-                        <button onClick={() => toast.info("Integración Google Calendar: Próximamente")} className="bg-white/5 text-gray-500 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 flex items-center gap-2" title="Próximamente">
-                            <ArrowPathIcon className="w-5 h-5" />
-                            <span className="text-xs font-medium hidden sm:inline">Sync Google</span>
+                        <button
+                            onClick={() => toast.info("Exportación iCal — Próximamente")}
+                            className="p-2 bg-white/5 text-gray-400 rounded-lg hover:text-white hover:bg-white/10 transition"
+                            title="Exportar iCal"
+                        >
+                            <ArrowDownTrayIcon className="w-4 h-4" />
                         </button>
-                        <button onClick={descargarICS} className="bg-white/5 text-gray-400 px-3 py-2 rounded-lg hover:text-white transition" title="Exportar iCal"><ArrowDownTrayIcon className="w-5 h-5" /></button>
-                        <button onClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: moment().format('YYYY-MM-DD'), hora: "09:00", categoria: "Diseño", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('tarea'); setEventoAEditar(null); setModalAbierto(true); }} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition shadow-lg flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Agendar</button>
+                        <button
+                            onClick={() => abrirNuevaTarea()}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:scale-105 transition shadow-lg shadow-indigo-900/30 flex items-center gap-2"
+                        >
+                            <PlusIcon className="w-4 h-4" /> Agendar
+                        </button>
                     </div>
                 </div>
 
-                <FilterBar filtros={filtros} toggleFiltro={(k) => setFiltros(prev => ({ ...prev, [k]: !prev[k] }))} />
+                {/* Filtros */}
+                <FilterBar filtros={filtros} toggleFiltro={toggleFiltro} />
 
+                {/* Calendario */}
                 <CalendarBoard
-                    eventos={eventosVisibles} view={view} setView={setView} date={date} onNavigate={onNavigate} onEventDrop={onEventDrop} onSelectEvent={setEventoSeleccionado}
-                    onProjectDrop={handleProjectDrop}
-                    onSelectSlot={(slot) => { const dateStr = moment(slot.start).format('YYYY-MM-DD'); setFormulario(prev => ({ ...prev, fecha: dateStr, hora: "09:00", titulo: "", proyectoId: "", recurrente: false })); setModalTipo('tarea'); setModalAbierto(true); }}
+                    eventos={eventosVisibles}
+                    view={view}
+                    setView={setView}
+                    date={date}
+                    onNavigate={onNavigate}
+                    onEventDrop={onEventDrop}
+                    onSelectEvent={setEventoSeleccionado}
+                    onSelectSlot={(slot: any) => {
+                        abrirNuevaTarea(moment(slot.start).format('YYYY-MM-DD'));
+                    }}
                 />
             </div>
 
-            <div className="w-full lg:w-[350px] bg-[#121418] border-l border-white/10 flex flex-col h-full overflow-y-auto custom-scrollbar">
-                <div id="tour-calendar-capacity" className="px-6 pt-6"><DailyCapacity eventos={eventosVisibles} fechaSeleccionada={eventoSeleccionado ? eventoSeleccionado.start : date} /></div>
-                <NotesBoard postIts={postIts} onAddClick={() => { setFormulario({ titulo: "", descripcion: "", fecha: "", hora: "", categoria: "", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false }); setModalTipo('postit'); setEventoAEditar(null); setModalAbierto(true); }} onDeleteNote={(id) => handleBorrar(id, 'notas_calendario')} onEdit={handleEditarNota} />
-                <div className="px-6 pb-6"><IncomingPayments proyectos={proyectosRaw} /></div>
+            {/* ── Sidebar derecho ──────────────────────────────────── */}
+            <div className="w-full lg:w-[300px] border-l border-white/10 flex flex-col h-full overflow-y-auto">
+                {/* Today Panel */}
+                <TodayPanel
+                    eventos={eventosDB}
+                    proyectosRaw={proyectosRaw}
+                    pagosProveedores={pagosProveedores}
+                />
+
+                {/* Post-its */}
+                <div className="border-t border-white/10">
+                    <NotesBoard
+                        postIts={postIts}
+                        onAddClick={() => {
+                            setFormulario({ titulo: "", descripcion: "", fecha: "", hora: "", categoria: "", colorPostit: "amarillo" as TipoNota, proyectoId: "", recurrente: false });
+                            setModalTipo('postit');
+                            setEventoAEditar(null);
+                            setModalAbierto(true);
+                        }}
+                        onDeleteNote={(id) => handleBorrar(id, 'notas_calendario')}
+                        onEdit={handleEditarNota}
+                    />
+                </div>
             </div>
 
-            <ModalCrear isOpen={modalAbierto} onClose={() => { setModalAbierto(false); setEventoAEditar(null); }} onSave={handleGuardar} modalTipo={modalTipo} setModalTipo={setModalTipo} formulario={formulario} setFormulario={setFormulario} proyectos={proyectosList} esEdicion={!!eventoAEditar} />
-            <ModalDetalle evento={eventoSeleccionado} onClose={() => setEventoSeleccionado(null)} onDelete={handleBorrar} onComplete={handleCompletar} onSaveSession={handleSaveSession} onEdit={handleEditar} />
-
+            {/* ── Modales ──────────────────────────────────────────── */}
+            <ModalCrear
+                isOpen={modalAbierto}
+                onClose={() => { setModalAbierto(false); setEventoAEditar(null); }}
+                onSave={handleGuardar}
+                modalTipo={modalTipo}
+                setModalTipo={setModalTipo}
+                formulario={formulario}
+                setFormulario={setFormulario}
+                proyectos={[]}
+                esEdicion={!!eventoAEditar}
+            />
+            <ModalDetalle
+                evento={eventoSeleccionado}
+                onClose={() => setEventoSeleccionado(null)}
+                onDelete={handleBorrar}
+                onComplete={handleCompletar}
+                onSaveSession={handleSaveSession}
+                onEdit={handleEditar}
+            />
             <EventNotifier eventos={eventosDB} />
 
-            {/* Modal Alarma */}
+            {/* Alarma */}
             {alarmEvent && (
                 <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[70] animate-in zoom-in">
                     <div className="bg-[#1C2128] border border-red-500/50 p-8 rounded-2xl max-w-md w-full text-center shadow-[0_0_50px_rgba(239,68,68,0.3)]">
                         <BellAlertIcon className="w-16 h-16 text-red-500 mx-auto mb-4 animate-bounce" />
                         <h2 className="text-3xl font-bold text-white mb-2">{alarmEvent.title}</h2>
                         <p className="text-xl text-gray-400 mb-6">¡Es hora de comenzar!</p>
-                        <button onClick={() => setAlarmEvent(null)} className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-8 rounded-xl text-lg transition shadow-lg">Entendido</button>
+                        <button onClick={() => setAlarmEvent(null)} className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-8 rounded-xl text-lg transition shadow-lg">
+                            Entendido
+                        </button>
                     </div>
                 </div>
             )}

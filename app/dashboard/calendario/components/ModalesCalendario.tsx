@@ -100,12 +100,13 @@ export function ModalDetalle({ evento, onClose, onDelete, onComplete, onSaveSess
     }, [isTiming]);
 
     // Resetear al abrir nuevo evento
-    useEffect(() => {
+    const [prevEventoId, setPrevEventoId] = useState<string | undefined>(evento?.id);
+    if (evento?.id !== prevEventoId) {
+        setPrevEventoId(evento?.id);
         setIsTiming(false);
         setSeconds(0);
         setShowSummary(false);
-    }, [evento]);
-
+    }
     if (!evento) return null;
 
     const formatTime = (totalSeconds: number) => {

@@ -31,7 +31,8 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
         referencia: "",
         cuenta_id: "",
         nota: "",
-        tipo: "parcial"
+        tipo: "parcial",
+        tasa_cambio: "",  // opcional, solo si moneda del pago ≠ moneda del proyecto
     });
 
     const [deudaTotal, setDeudaTotal] = useState(0);
@@ -222,8 +223,41 @@ export default function ModalPago({ isOpen, onClose, cliente, proyecto, cuentas,
 
                     <div className="flex gap-2">
                         <input type="number" value={form.monto} onChange={e => setForm({ ...form, monto: e.target.value })} placeholder="0.00" className="flex-1 bg-black/40 border border-white/10 p-3 rounded-xl text-white font-bold text-lg outline-none" />
-                        <div className="bg-white/5 p-3 rounded-xl text-white font-bold flex items-center">{form.moneda}</div>
+                        <select
+                            value={form.moneda}
+                            onChange={e => setForm({ ...form, moneda: e.target.value as Moneda, tasa_cambio: "" })}
+                            className="bg-black/40 border border-white/10 p-3 rounded-xl text-white font-bold outline-none focus:border-emerald-500 transition"
+                        >
+                            {(["USD", "COP", "EUR", "MXN", "ARS", "PEN", "BRL"] as Moneda[]).map(m => (
+                                <option key={m} value={m} className="bg-[#1C2128]">{m}</option>
+                            ))}
+                        </select>
                     </div>
+
+                    {/* Tasa de cambio — aparece solo si la moneda del pago difiere del proyecto */}
+                    {proyecto && form.moneda !== proyecto.moneda && (
+                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-3">
+                            <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider mb-2">
+                                💱 Pago en {form.moneda} — Proyecto en {proyecto.moneda}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 whitespace-nowrap">1 {proyecto.moneda} =</span>
+                                <input
+                                    type="number"
+                                    placeholder={`Tasa en ${form.moneda} (opcional)`}
+                                    value={form.tasa_cambio}
+                                    onChange={e => setForm({ ...form, tasa_cambio: e.target.value })}
+                                    className="flex-1 bg-black/40 border border-white/10 p-2 rounded-lg text-white text-sm outline-none focus:border-blue-500 transition"
+                                />
+                                <span className="text-xs text-gray-400">{form.moneda}</span>
+                            </div>
+                            {form.tasa_cambio && Number(form.tasa_cambio) > 0 && Number(form.monto) > 0 && (
+                                <p className="text-[10px] text-blue-200/70 mt-1.5">
+                                    ≈ {(Number(form.monto) / Number(form.tasa_cambio)).toLocaleString('en-US', { maximumFractionDigits: 2 })} {proyecto.moneda} al cambio ingresado
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     <input value={form.referencia} onChange={e => setForm({ ...form, referencia: e.target.value })} placeholder="Referencia / Comprobante *" className="w-full bg-black/40 border border-emerald-500/30 p-3 rounded-xl text-white outline-none" />
                     <input type="file" onChange={e => setArchivo(e.target.files?.[0] || null)} className="w-full text-xs text-gray-400" />

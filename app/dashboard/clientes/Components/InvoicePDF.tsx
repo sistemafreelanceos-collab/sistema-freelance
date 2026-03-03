@@ -1,108 +1,177 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import type { InvoiceData, InvoiceItem } from './invoiceTypes';
 
-// Estilos del PDF (parecido a CSS pero para documentos)
-const styles = StyleSheet.create({
-    page: { padding: 40, backgroundColor: '#FFFFFF', fontFamily: 'Helvetica' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 40, borderBottomWidth: 1, borderBottomColor: '#EEE', paddingBottom: 20 },
-    logoSection: { width: '50%' },
-    logoText: { fontSize: 24, fontWeight: 'bold', color: '#10B981' }, // Color Esmeralda
-    invoiceInfo: { width: '40%', textAlign: 'right' },
-    title: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, textTransform: 'uppercase', color: '#333' },
-    text: { fontSize: 10, color: '#666', marginBottom: 4 },
-
-    // Sección Cliente
-    clientSection: { marginBottom: 30, padding: 15, backgroundColor: '#F9FAFB', borderRadius: 4 },
-    sectionTitle: { fontSize: 11, fontWeight: 'bold', color: '#333', marginBottom: 8, textTransform: 'uppercase' },
-
-    // Tabla
-    table: { marginTop: 20 },
-    tableHeader: { flexDirection: 'row', backgroundColor: '#10B981', padding: 8, borderRadius: 4 },
-    tableHeaderItem: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
-    tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#EEE', padding: 10 },
-
-    col1: { width: '60%' },
-    col2: { width: '40%', textAlign: 'right' },
-
-    // Totales
-    totalSection: { marginTop: 30, alignItems: 'flex-end' },
-    totalRow: { flexDirection: 'row', justifyContent: 'space-between', width: '40%', marginBottom: 5 },
-    totalLabel: { fontSize: 10, color: '#666' },
-    totalValue: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-
-    footer: { position: 'absolute', bottom: 30, left: 40, right: 40, textAlign: 'center', borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 20 },
-    footerText: { fontSize: 8, color: '#999' }
-});
+export type { InvoiceData, InvoiceItem };
 
 interface Props {
     proyecto: any;
     cliente: any;
-    perfil: any; // Tus datos (Empresa, Nombre, etc)
+    perfil: any;
+    invoiceData: InvoiceData;
 }
 
-export default function InvoicePDF({ proyecto, cliente, perfil }: Props) {
+const TIPO_LABEL: Record<string, string> = {
+    cotizacion: 'COTIZACIÓN',
+    factura: 'FACTURA',
+    recibo: 'RECIBO DE PAGO',
+};
+
+// ============================================================
+// DYNAMIC STYLES (re-created per render with accent color)
+// ============================================================
+const makeStyles = (accent: string) =>
+    StyleSheet.create({
+        page: { padding: 44, backgroundColor: '#FFFFFF', fontFamily: 'Helvetica', fontSize: 10, color: '#333' },
+
+        // Header
+        header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 20 },
+        logoSection: { width: '55%' },
+        logoImage: { width: 48, height: 48, borderRadius: 4, marginBottom: 6 },
+        logoText: { fontSize: 22, fontWeight: 'bold', color: accent },
+        labelSmall: { fontSize: 9, color: '#9CA3AF', marginTop: 2 },
+        invoiceInfo: { width: '40%', alignItems: 'flex-end' },
+        docTitle: { fontSize: 20, fontWeight: 'bold', color: accent, textTransform: 'uppercase', marginBottom: 6 },
+        infoText: { fontSize: 9, color: '#6B7280', marginBottom: 3 },
+        numBadge: { backgroundColor: accent, color: '#FFF', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, marginTop: 4 },
+
+        // Parties section
+        partiesRow: { flexDirection: 'row', gap: 16, marginBottom: 28 },
+        partyBox: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 6, padding: 14, borderLeftWidth: 3, borderLeftColor: accent },
+        partyLabel: { fontSize: 8, fontWeight: 'bold', color: accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+        partyName: { fontSize: 12, fontWeight: 'bold', color: '#111', marginBottom: 3 },
+        partyDetail: { fontSize: 9, color: '#6B7280', marginBottom: 2 },
+
+        // Items table
+        table: { marginBottom: 20 },
+        tableHeader: { flexDirection: 'row', backgroundColor: accent, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 4 },
+        tableHeaderText: { color: '#FFF', fontWeight: 'bold', fontSize: 9 },
+        tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 9 },
+        tableRowAlt: { backgroundColor: '#F9FAFB' },
+        colDesc: { flex: 3 },
+        colQty: { flex: 1, textAlign: 'center' },
+        colPrice: { flex: 1.2, textAlign: 'right' },
+        colTotal: { flex: 1.2, textAlign: 'right' },
+        cellText: { fontSize: 9, color: '#374151' },
+        cellTextBold: { fontSize: 9, fontWeight: 'bold', color: '#111' },
+
+        // Totals
+        totalsSection: { alignItems: 'flex-end', marginBottom: 28 },
+        totalRow: { flexDirection: 'row', width: 220, justifyContent: 'space-between', paddingVertical: 3 },
+        totalLabel: { fontSize: 9, color: '#6B7280' },
+        totalValue: { fontSize: 9, color: '#374151' },
+        grandRow: { flexDirection: 'row', width: 220, justifyContent: 'space-between', borderTopWidth: 1.5, borderTopColor: accent, paddingTop: 6, marginTop: 4 },
+        grandLabel: { fontSize: 12, fontWeight: 'bold', color: accent },
+        grandValue: { fontSize: 12, fontWeight: 'bold', color: accent },
+
+        // Notes
+        notesBox: { backgroundColor: '#F9FAFB', borderRadius: 6, padding: 12, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: '#E5E7EB' },
+        notesLabel: { fontSize: 8, fontWeight: 'bold', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 4 },
+        notesText: { fontSize: 9, color: '#6B7280', lineHeight: 1.5 },
+
+        // Footer
+        footer: { position: 'absolute', bottom: 28, left: 44, right: 44, borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' },
+        footerText: { fontSize: 8, color: '#9CA3AF' },
+        footerAccent: { fontSize: 8, color: accent, fontWeight: 'bold' },
+    });
+
+// ============================================================
+// COMPONENT
+// ============================================================
+export default function InvoicePDF({ proyecto, cliente, perfil, invoiceData }: Props) {
+    const styles = makeStyles(invoiceData.accentColor || '#10B981');
     const fecha = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
-    const monto = new Intl.NumberFormat('en-US', { style: 'currency', currency: proyecto.moneda || 'USD' }).format(proyecto.monto);
+    const moneda = invoiceData.items[0]?.moneda || proyecto?.moneda || 'USD';
+
+    const fmt = (n: number) =>
+        new Intl.NumberFormat('en-US', { style: 'currency', currency: moneda, maximumFractionDigits: 2 }).format(n);
+
+    const subtotal = invoiceData.items.reduce((s, i) => s + i.cantidad * i.precioUnit, 0);
 
     return (
         <Document>
             <Page size="A4" style={styles.page}>
 
-                {/* Encabezado */}
+                {/* ── HEADER ── */}
                 <View style={styles.header}>
                     <View style={styles.logoSection}>
-                        {/* Si tuvieras logo url: <Image src={perfil.branding_logo_url} style={{ width: 50, height: 50 }} /> */}
-                        <Text style={styles.logoText}>{perfil?.empresa || perfil?.nombre || 'ONYX'}</Text>
-                        <Text style={styles.text}>{perfil?.email}</Text>
-                        {perfil?.telefono && <Text style={styles.text}>{perfil.telefono}</Text>}
+                        {perfil?.avatar_url
+                            ? <Image src={perfil.avatar_url} style={styles.logoImage} />
+                            : null}
+                        <Text style={styles.logoText}>{perfil?.empresa || perfil?.nombre || 'Mi Empresa'}</Text>
+                        {perfil?.email && <Text style={styles.labelSmall}>{perfil.email}</Text>}
+                        {perfil?.telefono && <Text style={styles.labelSmall}>{perfil.telefono}</Text>}
+                        {invoiceData.emisorNit && <Text style={styles.labelSmall}>NIT/RUC: {invoiceData.emisorNit}</Text>}
                     </View>
                     <View style={styles.invoiceInfo}>
-                        <Text style={styles.title}>Cotización</Text>
-                        <Text style={styles.text}>Fecha: {fecha}</Text>
-                        <Text style={styles.text}>Validez: 15 días</Text>
+                        <Text style={styles.docTitle}>{TIPO_LABEL[invoiceData.tipoDocumento]}</Text>
+                        <Text style={styles.infoText}>Fecha: {fecha}</Text>
+                        <Text style={styles.infoText}>Validez: 15 días</Text>
+                        <Text style={styles.numBadge}>{invoiceData.numeroDocumento}</Text>
                     </View>
                 </View>
 
-                {/* Datos del Cliente */}
-                <View style={styles.clientSection}>
-                    <Text style={styles.sectionTitle}>Preparado para:</Text>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{cliente.nombre}</Text>
-                    {cliente.empresa && <Text style={styles.text}>{cliente.empresa}</Text>}
-                    <Text style={styles.text}>{cliente.email}</Text>
+                {/* ── PARTIES ── */}
+                <View style={styles.partiesRow}>
+                    <View style={styles.partyBox}>
+                        <Text style={styles.partyLabel}>Emitido por</Text>
+                        <Text style={styles.partyName}>{perfil?.empresa || perfil?.nombre}</Text>
+                        <Text style={styles.partyDetail}>{perfil?.email}</Text>
+                        {perfil?.telefono && <Text style={styles.partyDetail}>{perfil.telefono}</Text>}
+                        {invoiceData.emisorNit && <Text style={styles.partyDetail}>NIT: {invoiceData.emisorNit}</Text>}
+                    </View>
+                    <View style={styles.partyBox}>
+                        <Text style={styles.partyLabel}>Preparado para</Text>
+                        <Text style={styles.partyName}>{cliente?.nombre}</Text>
+                        {cliente?.empresa && <Text style={styles.partyDetail}>{cliente.empresa}</Text>}
+                        <Text style={styles.partyDetail}>{cliente?.email}</Text>
+                        {invoiceData.receptorNit && <Text style={styles.partyDetail}>NIT: {invoiceData.receptorNit}</Text>}
+                    </View>
                 </View>
 
-                {/* Tabla de Servicios */}
+                {/* ── ITEMS TABLE ── */}
                 <View style={styles.table}>
                     <View style={styles.tableHeader}>
-                        <Text style={[styles.tableHeaderItem, styles.col1]}>Descripción del Proyecto</Text>
-                        <Text style={[styles.tableHeaderItem, styles.col2]}>Importe</Text>
+                        <Text style={[styles.tableHeaderText, styles.colDesc]}>Descripción</Text>
+                        <Text style={[styles.tableHeaderText, styles.colQty]}>Cant.</Text>
+                        <Text style={[styles.tableHeaderText, styles.colPrice]}>Precio Unit.</Text>
+                        <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
                     </View>
-
-                    <View style={styles.tableRow}>
-                        <View style={styles.col1}>
-                            <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#333' }}>{proyecto.nombre}</Text>
-                            <Text style={{ fontSize: 10, color: '#666', marginTop: 4 }}>
-                                {proyecto.descripcion || "Servicios profesionales de desarrollo y gestión."}
-                            </Text>
+                    {invoiceData.items.map((item, idx) => (
+                        <View key={idx} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                            <View style={styles.colDesc}>
+                                <Text style={styles.cellTextBold}>{item.descripcion}</Text>
+                            </View>
+                            <Text style={[styles.cellText, styles.colQty]}>{item.cantidad}</Text>
+                            <Text style={[styles.cellText, styles.colPrice]}>{fmt(item.precioUnit)}</Text>
+                            <Text style={[styles.cellTextBold, styles.colTotal]}>{fmt(item.cantidad * item.precioUnit)}</Text>
                         </View>
-                        <Text style={[styles.col2, { fontSize: 11, color: '#333' }]}>{monto}</Text>
-                    </View>
+                    ))}
                 </View>
 
-                {/* Totales */}
-                <View style={styles.totalSection}>
+                {/* ── TOTALS ── */}
+                <View style={styles.totalsSection}>
                     <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>Subtotal:</Text>
-                        <Text style={{ fontSize: 11 }}>{monto}</Text>
+                        <Text style={styles.totalValue}>{fmt(subtotal)}</Text>
                     </View>
-                    <View style={[styles.totalRow, { marginTop: 10, borderTopWidth: 1, borderTopColor: '#DDD', paddingTop: 5 }]}>
-                        <Text style={[styles.totalLabel, { fontSize: 12, fontWeight: 'bold', color: '#10B981' }]}>TOTAL A PAGAR:</Text>
-                        <Text style={[styles.totalValue, { color: '#10B981' }]}>{monto}</Text>
+                    <View style={styles.grandRow}>
+                        <Text style={styles.grandLabel}>TOTAL:</Text>
+                        <Text style={styles.grandValue}>{fmt(subtotal)}</Text>
                     </View>
                 </View>
 
-                {/* Footer */}
+                {/* ── NOTES ── */}
+                {invoiceData.notas ? (
+                    <View style={styles.notesBox}>
+                        <Text style={styles.notesLabel}>Notas y Condiciones</Text>
+                        <Text style={styles.notesText}>{invoiceData.notas}</Text>
+                    </View>
+                ) : null}
+
+                {/* ── FOOTER ── */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>Generado con Onyx Dashboard - Gracias por su confianza.</Text>
+                    <Text style={styles.footerText}>Generado con Onyx Dashboard</Text>
+                    <Text style={styles.footerAccent}>{invoiceData.numeroDocumento}</Text>
                 </View>
 
             </Page>

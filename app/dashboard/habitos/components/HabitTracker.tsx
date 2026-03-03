@@ -42,7 +42,6 @@ export default function HabitTracker({ userId, onUpdateXP }: Props) {
 
         // 1. Preparar columnas de días
         const ultimosDias = getUltimos7Dias();
-        setDiasSemana(ultimosDias);
 
         // 2. Traer hábitos activos
         const { data: defs } = await supabase
@@ -75,6 +74,7 @@ export default function HabitTracker({ userId, onUpdateXP }: Props) {
             };
         });
 
+        setDiasSemana(ultimosDias);
         setHabitos(procesados);
     };
 

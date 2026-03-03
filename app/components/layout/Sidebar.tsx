@@ -11,6 +11,7 @@ export const MENU_ITEMS = [
     { ruta: "/dashboard/timeline", icon: "📝", label: "Bitácora" },
     { ruta: "/dashboard/calendario", icon: "📅", label: "Calendario" },
     { ruta: "/dashboard/clientes", icon: "👥", label: "Clientes" },
+    { ruta: "/dashboard/proveedores", icon: "🏭", label: "Proveedores" },
     { ruta: "/dashboard/cuentas", icon: "💳", label: "Cuentas" },
     { ruta: "/dashboard/finanzas", icon: "💰", label: "Finanzas" },
     { ruta: "/dashboard/habitos", icon: "🥗", label: "Hábitos" },

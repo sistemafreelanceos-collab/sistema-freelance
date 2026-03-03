@@ -5,8 +5,24 @@ import { ConfigPerfil } from "../../../../types"; // <--- IMPORTAMOS EL TIPO OFI
 import { toast } from "sonner";
 
 // Eliminamos la definición local de ConfigPerfil y Moneda para usar la global o inferencia
-type Moneda = "USD" | "COP" | "EUR" | "MXN";
-const ALL_MONEDAS: Moneda[] = ["USD", "COP", "EUR", "MXN"];
+type Moneda = "USD" | "COP" | "EUR" | "MXN" | "ARS" | "BRL" | "CLP" | "PEN" | "VES" | "BOB" | "PYG" | "UYU" | "GBP" | "CAD" | "AUD";
+const ALL_MONEDAS: { code: Moneda; flag: string; name: string }[] = [
+  { code: "USD", flag: "🇺🇸", name: "Dólar EE.UU." },
+  { code: "COP", flag: "🇨🇴", name: "Peso Colombiano" },
+  { code: "EUR", flag: "🇪🇺", name: "Euro" },
+  { code: "MXN", flag: "🇲🇽", name: "Peso Mexicano" },
+  { code: "ARS", flag: "🇦🇷", name: "Peso Argentino" },
+  { code: "BRL", flag: "🇧🇷", name: "Real Brasileño" },
+  { code: "CLP", flag: "🇨🇱", name: "Peso Chileno" },
+  { code: "PEN", flag: "🇵🇪", name: "Sol Peruano" },
+  { code: "VES", flag: "🇻🇪", name: "Bolívar Venezolano" },
+  { code: "BOB", flag: "🇧🇴", name: "Boliviano" },
+  { code: "PYG", flag: "🇵🇾", name: "Guaraní Paraguayo" },
+  { code: "UYU", flag: "🇺🇾", name: "Peso Uruguayo" },
+  { code: "GBP", flag: "🇬🇧", name: "Libra Esterlina" },
+  { code: "CAD", flag: "🇨🇦", name: "Dólar Canadiense" },
+  { code: "AUD", flag: "🇦🇺", name: "Dólar Australiano" },
+];
 
 type Props = {
   config: ConfigPerfil;
@@ -68,18 +84,19 @@ export default function FinanceTab({ config, setConfig, guardar, saving }: Props
         <p className="text-sm font-bold text-white mb-3">Monedas activas</p>
 
         <div className="flex flex-wrap gap-2">
-          {ALL_MONEDAS.map((m) => {
-            const active = config.monedas_activas?.includes(m);
+          {ALL_MONEDAS.map(({ code, flag, name }) => {
+            const active = config.monedas_activas?.includes(code);
             return (
               <button
-                key={m}
-                onClick={() => toggleMoneda(m)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${active
-                  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-                  : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
+                key={code}
+                onClick={() => toggleMoneda(code)}
+                title={name}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${active
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                    : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
                   }`}
               >
-                {m}
+                <span>{flag}</span> {code}
               </button>
             );
           })}
@@ -95,18 +112,20 @@ export default function FinanceTab({ config, setConfig, guardar, saving }: Props
         <p className="text-sm font-bold text-white mb-3">Moneda de metas</p>
 
         <div className="flex flex-wrap gap-2">
-          {(config.monedas_activas || []).map((m) => {
-            const selected = config.meta_moneda === m;
+          {(config.monedas_activas || []).map((code) => {
+            const selected = config.meta_moneda === code;
+            const info = ALL_MONEDAS.find(m => m.code === code);
             return (
               <button
-                key={m}
-                onClick={() => setMetaMoneda(m)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${selected
-                  ? "bg-blue-500/10 text-blue-200 border-blue-500/30"
-                  : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
+                key={code}
+                onClick={() => setMetaMoneda(code)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${selected
+                    ? "bg-blue-500/10 text-blue-200 border-blue-500/30"
+                    : "bg-[#0F1115] text-gray-200 border-white/10 hover:bg-white/5"
                   }`}
               >
-                {selected ? `✓ ${m}` : m}
+                {info?.flag && <span>{info.flag}</span>}
+                {selected ? `✓ ${code}` : code}
               </button>
             );
           })}

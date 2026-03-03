@@ -29,8 +29,9 @@ export default function ModalEditarProyecto({ isOpen, onClose, proyecto, onProye
     entregables_totales: 0
   });
 
-  // Cargar datos del proyecto al abrir
-  useEffect(() => {
+  const [prevProyectoId, setPrevProyectoId] = useState<string | undefined>(proyecto?.id);
+  if (proyecto?.id !== prevProyectoId) {
+    setPrevProyectoId(proyecto?.id);
     if (proyecto) {
       setForm({
         nombre: proyecto.nombre,
@@ -43,7 +44,7 @@ export default function ModalEditarProyecto({ isOpen, onClose, proyecto, onProye
         entregables_totales: proyecto.entregables_totales || 0
       });
     }
-  }, [proyecto]);
+  }
 
   const handleSubmit = async () => {
     if (!proyecto) return;

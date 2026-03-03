@@ -89,9 +89,9 @@ export function useHabitReminder(userId: string | null) {
             const currentHour = now.getHours();
 
             // ==========================================
-            // MODO PRUEBA ACTIVADO (COMENTAR EN PROD)
+            // MODO PRUEBA DESACTIVADO (producción)
             // ==========================================
-            const FORCE_TEST = true;
+            const FORCE_TEST = false;
 
             if (FORCE_TEST) {
                 // Si el force test está activo, chequeamos cada minuto (intervalo lo triggerea)
